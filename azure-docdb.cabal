@@ -1,0 +1,64 @@
+name:                azure-docdb
+version:             0.1.0.0
+synopsis:            Azure Document DB client library
+-- description:
+homepage:            https://github.com/jnonce/azure-docdb#readme
+license:             BSD3
+license-file:        LICENSE
+author:              jnonce
+maintainer:          jnonce@outlook.com
+copyright:           2017 jnonce
+category:            Web
+build-type:          Simple
+cabal-version:       >=1.10
+extra-source-files:  README.md
+data-dir:            src
+data-files:          settings.js
+
+library
+  hs-source-dirs:      lib
+  default-language:    Haskell2010
+  exposed-modules:     Azure.DocDB
+                     , Azure.DocDB.DBResourceId
+                     , Azure.DocDB.DBSocketMonad
+                     , Azure.DocDB.DocDBAuth
+                     , Azure.DocDB.DocumentStore
+                     , Azure.DocDB.ETag
+  build-depends:       base >= 4.7 && < 5
+                     , aeson
+                     , base64-bytestring
+                     , bytestring
+                     , containers
+                     , cryptonite
+                     , exceptions
+                     , http-api-data
+                     , http-client
+                     , http-client-tls
+                     , http-types
+                     , memory
+                     , mtl
+                     , network-uri
+                     , text
+                     , time
+                     , transformers
+                     , unordered-containers
+
+executable sample
+  hs-source-dirs:      src
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  other-modules:       Settings
+  build-depends:       base >= 4.7 && < 5
+                     , aeson
+                     , base64-bytestring
+                     , bytestring
+                     , containers
+                     , exceptions
+                     , http-client
+                     , http-client-tls
+                     , mtl
+                     , network-uri
+                     , text
+                     , transformers
+                     , unordered-containers
+                     , azure-docdb
