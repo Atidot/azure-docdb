@@ -44,6 +44,7 @@ import Azure.DocDB.Auth
 import Azure.DocDB.ETag
 import Azure.DocDB.ResourceId
 import Azure.DocDB.SocketMonad
+import qualified Azure.DocDB.ServiceHeader as AH
 
 
 -- | SQL query into the document store
@@ -82,26 +83,6 @@ data DBQueryParam = DBQueryParam {
   }
 
 
-headerContentJSON :: HT.Header
-headerContentJSON = (HT.hContentType, "application/json")
-
-headerContentJSONQuery :: HT.Header
-headerContentJSONQuery = (HT.hContentType, "application/query+json")
-
-headerAcceptJSON :: HT.Header
-headerAcceptJSON = (HT.hAccept, "application/json")
-
-headerIsQuery :: HT.Header
-headerIsQuery = ("x-ms-documentdb-isquery", "True")
-
-headerMaxItemCount :: HT.HeaderName
-headerMaxItemCount = "x-ms-max-item-count"
-
-headerContinuation :: HT.HeaderName
-headerContinuation = "x-ms-continuation"
-
-headerQueryCrossPartition :: HT.HeaderName
-headerQueryCrossPartition = "x-ms-documentdb-query-enablecrosspartition"
 
 
 -- | Prepend a header to a request, if a value is present to add
@@ -139,7 +120,7 @@ getDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) = do
     srResourceType = "docs",
     srResourceLink = resourceLink res,
     srUriPath = "dbs" </> db </> "colls" </> coll </> "docs" </> docId,
-    srHeaders = maybeAddHeader ifNoneMatch tag [headerAcceptJSON]
+    srHeaders = maybeAddHeader ifNoneMatch tag [AH.acceptJSON]
     }
 
   ETagged etag <$> decodeOrThrow bdy
@@ -157,7 +138,7 @@ createDocument res@(CollectionId db coll) doc = do
     srResourceType = "docs",
     srResourceLink = resourceLink res,
     srUriPath = "dbs" </> db </> "colls" </> coll </> "docs",
-    srHeaders = [headerAcceptJSON, headerContentJSON]
+    srHeaders = [AH.acceptJSON, AH.contentJSON]
     }
 
   ETagged etag <$> decodeOrThrow bdy
@@ -175,7 +156,7 @@ replaceDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) doc 
     srResourceType = "docs",
     srResourceLink = resourceLink res,
     srUriPath = "dbs" </> db </> "colls" </> coll </> "docs" </> docId,
-    srHeaders = maybeAddHeader ifMatch tag [headerAcceptJSON, headerContentJSON]
+    srHeaders = maybeAddHeader ifMatch tag [AH.acceptJSON, AH.contentJSON]
     }
 
   ETagged etag <$> decodeOrThrow bdy
@@ -192,7 +173,7 @@ deleteDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) =
     srResourceType = "docs",
     srResourceLink = resourceLink res,
     srUriPath = "dbs" </> db </> "colls" </> coll </> "docs" </> docId,
-    srHeaders = maybeAddHeader ifMatch tag [headerAcceptJSON, headerContentJSON]
+    srHeaders = maybeAddHeader ifMatch tag [AH.acceptJSON, AH.contentJSON]
     }
 
 
@@ -202,9 +183,9 @@ dbQueryParamSimple = DBQueryParam (-1) mempty False
 
 dbQueryParamToHeaders :: DBQueryParam -> [HT.Header]
 dbQueryParamToHeaders p =
-  prependIf (maxItemCount p > 0) (headerMaxItemCount, numToB (maxItemCount p)) $
-  prependIf (not . T.null . continuationToken $ p) (headerContinuation, T.encodeUtf8 $ continuationToken p) $
-  prependIf (enableCrossPartition p) (headerQueryCrossPartition, "True")
+  prependIf (maxItemCount p > 0) (AH.maxItemCount, numToB (maxItemCount p)) $
+  prependIf (not . T.null . continuationToken $ p) (AH.continuation, T.encodeUtf8 $ continuationToken p) $
+  prependIf (enableCrossPartition p) (AH.queryCrossPartition, "True")
   []
   where
     prependIf :: Bool -> a -> [a] -> [a]
@@ -228,7 +209,7 @@ queryDocuments res@(CollectionId db coll) sql dbQParams = do
     srResourceType = "docs",
     srResourceLink = resourceLink res,
     srUriPath = "dbs" </> db </> "colls" </> coll </> "docs",
-    srHeaders = dbQueryParamToHeaders dbQParams ++ [headerIsQuery, headerAcceptJSON, headerContentJSONQuery]
+    srHeaders = dbQueryParamToHeaders dbQParams ++ [AH.isQuery, AH.acceptJSON, AH.contentJSONQuery]
     }
   dcs <- decodeOrThrow bdy
   return (dbQParams, documentsListed dcs)

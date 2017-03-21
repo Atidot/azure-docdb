@@ -10,9 +10,7 @@ module Azure.DocDB.SocketMonad (
   SocketRequest(..),
   DBError(..),
   execDBSocketT,
-  mkDBSocketState,
-  modifyHeaders,
-  addHeader,
+  mkDBSocketState
   ) where
 
 import           Control.Applicative
@@ -38,7 +36,7 @@ import           Web.HttpApiData (ToHttpApiData(..))
 import Azure.DocDB.Auth
 import Azure.DocDB.ETag
 import Azure.DocDB.ResourceId
-
+import qualified Azure.DocDB.ServiceHeader as AH
 
 -- | Socket state for DB connections
 data DBSocketState = DBSocketState {
@@ -101,16 +99,6 @@ instance MonadTrans DBSocketT where
   lift = DBSocketT . lift . lift
 
 
-headerVersion :: HT.Header
-headerVersion = ("x-ms-version", "2016-07-11")
-
-headerSessionToken :: HT.HeaderName
-headerSessionToken = "x-ms-session-token"
-
-headerMSDate :: HT.HeaderName
-headerMSDate = "x-ms-date"
-
-
 -- | Execute the DB operation
 execDBSocketT :: MonadIO m => DBSocketT m a -> DBSocketState -> m (Either DBError a)
 execDBSocketT (DBSocketT m) = evalStateT (runExceptT m)
@@ -125,7 +113,7 @@ mkDBSocketState :: (MonadThrow m, MonadIO m, Alternative m)
 mkDBSocketState signingKey root mgr = do
   r <- parseRequest $ T.unpack root
   return DBSocketState
-    { dbSSRequest = r { requestHeaders = [headerVersion] }
+    { dbSSRequest = r { requestHeaders = [AH.version] }
     , sbSSSigning = signRequestInfo signingKey
     , sendHttps = mkDebuggable (`httpLbs` mgr)
     }
@@ -194,16 +182,6 @@ instance MonadIO m => DBSocketMonad (DBSocketT m) where
           method = HT.renderStdMethod $ srMethod socketRequest,
           requestBody = RequestBodyLBS (srContent socketRequest)
           }) .
-        modifyHeaders (\headers -> headers ++ srHeaders socketRequest) .
-        addHeader (headerMSDate, toHeader when) .
-        addHeader (HT.hAuthorization, toHeader docDBSignature)
-
-
--- | Modify headers on a request
-modifyHeaders :: ([HT.Header] -> [HT.Header]) -> Request -> Request
-modifyHeaders f req =
-  req { requestHeaders = f . requestHeaders $ req }
-
--- | Prepend a header to a request
-addHeader :: HT.Header -> Request -> Request
-addHeader h = modifyHeaders ((:) h)
+        AH.modifyHeaders (\headers -> headers ++ srHeaders socketRequest) .
+        AH.addHeader (AH.msDate, toHeader when) .
+        AH.addHeader (HT.hAuthorization, toHeader docDBSignature)
