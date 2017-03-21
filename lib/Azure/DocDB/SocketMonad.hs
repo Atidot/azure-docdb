@@ -6,7 +6,7 @@
 module Azure.DocDB.SocketMonad (
   DBSocketState,
   DBSocketMonad(..),
-  DBSocketT(..),
+  DBSocketT,
   SocketRequest(..),
   SocketResponse(..),
   DBError(..),
@@ -18,7 +18,7 @@ import           Control.Applicative
 import           Control.Lens (Lens', lens, over, set, view)
 import           Control.Monad
 import           Control.Monad.Except
-import           Control.Monad.State
+import           Control.Monad.Reader
 import           Control.Monad.Catch (MonadThrow)
 import           Control.Monad.Trans
 import           Control.Monad.IO.Class
@@ -102,12 +102,12 @@ class MonadError DBError m => DBSocketMonad m where
   sendSocketRequest :: SocketRequest -> m SocketResponse
 
 
-instance DBSocketMonad m => DBSocketMonad (StateT s m) where
+instance DBSocketMonad m => DBSocketMonad (ReaderT s m) where
   sendSocketRequest = lift . sendSocketRequest
 
 
 newtype DBSocketT m a = DBSocketT {
-  runDBSocketT :: ExceptT DBError (StateT DBSocketState m) a
+  runDBSocketT :: ExceptT DBError (ReaderT DBSocketState m) a
   } deriving (Functor, Applicative, Monad, MonadIO)
 
 instance MonadTrans DBSocketT where
@@ -130,7 +130,7 @@ requestHeaders' = lens requestHeaders (\req m -> req { requestHeaders = m })
 
 -- | Execute the DB operation
 execDBSocketT :: MonadIO m => DBSocketT m a -> DBSocketState -> m (Either DBError a)
-execDBSocketT (DBSocketT m) = evalStateT (runExceptT m)
+execDBSocketT (DBSocketT m) = runReaderT (runExceptT m)
 
 
 --- | DBSocketState constructor
@@ -170,7 +170,7 @@ instance Monad m => MonadError DBError (DBSocketT m) where
 
 instance MonadIO m => DBSocketMonad (DBSocketT m) where
   sendSocketRequest socketRequest = DBSocketT $ do
-    (DBSocketState req fsign sendHttps) <- get
+    (DBSocketState req fsign sendHttps) <- ask
     -- Pick a timestamp for signing
     now <- MSDate <$> liftIO getCurrentTime
 
