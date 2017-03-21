@@ -1,14 +1,16 @@
+{-# LANGUAGE FlexibleInstances #-}
 
 module Azure.DocDB.ETag (
   ETag(..),
   ETagged(..),
+  ProvideETag(..),
   ifMatch,
   ifNoneMatch,
   ) where
 
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import           Network.HTTP.Types.Header (Header, hIfMatch, hIfNoneMatch)
+import           Network.HTTP.Types.Header (Header, ResponseHeaders, hIfMatch, hIfNoneMatch, hETag)
 import           Web.HttpApiData (ToHttpApiData(..))
 
 
@@ -38,6 +40,14 @@ instance Monad ETagged where
   (ETagged t1 a) >>= f = ETagged (etagMerge t1 t2) n
     where
       (ETagged t2 n) = f a
+
+class ProvideETag a where
+  etagOf :: a -> Maybe ETag
+
+instance ProvideETag ResponseHeaders where
+  etagOf = fmap decodeETag . lookup hETag
+    where
+      decodeETag = ETag . T.decodeUtf8
 
 ifMatch :: ETag -> Header
 ifMatch tag = (hIfMatch, toHeader tag)

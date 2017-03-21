@@ -40,7 +40,7 @@ Offer 	    https://{databaseaccount}.documents.azure.com/offers/{offer}
 --
 testGetDoc :: (MonadIO m, DBSocketMonad m) => CollectionId -> m ()
 testGetDoc collection = do
-  rslt :: ETagged A.Object <- getDocument (pure (collection #> "testdoc"))
+  rslt :: Maybe (ETagged A.Object) <- getDocument (pure (collection #> "testdoc"))
   liftIO $ print rslt
 
 

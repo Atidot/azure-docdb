@@ -94,12 +94,8 @@ maybeAddHeader mkHeader = maybe id ((:) . mkHeader)
 maybePrepend :: Maybe b -> [b] -> [b]
 maybePrepend = maybe id (:)
 
-
-responseETag :: HT.ResponseHeaders -> Maybe ETag
-responseETag = fmap decodeETag . lookup HT.hETag
-  where
-    decodeETag = ETag . T.decodeUtf8
-
+instance ProvideETag SocketResponse where
+  etagOf = etagOf . srspHeaders
 
 -- | Parse JSON within a failable monad
 decodeOrThrow :: (MonadError DBError m, FromJSON a) => L.ByteString -> m a
@@ -109,12 +105,16 @@ decodeOrThrow bdy =
     Right js -> return js
 
 
+bodyIfPresent :: SocketResponse -> Maybe L.ByteString
+bodyIfPresent (SocketResponse 304 _ bdy) = Nothing
+bodyIfPresent (SocketResponse _ _ bdy) = Just bdy
+
 -- | Retrieve a document from DocumentDB
 getDocument :: (DBSocketMonad m, FromJSON a)
   => ETagged DocumentId
-  -> m (ETagged a)
+  -> m (Maybe (ETagged a))
 getDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) = do
-  (ETagged etag bdy) <- sendSocketRequest SocketRequest {
+  srsp <- sendSocketRequest SocketRequest {
     srMethod = HT.GET,
     srContent = mempty,
     srResourceType = "docs",
@@ -123,7 +123,8 @@ getDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) = do
     srHeaders = maybeAddHeader ifNoneMatch tag [AH.acceptJSON]
     }
 
-  ETagged etag <$> decodeOrThrow bdy
+  bdy <- traverse decodeOrThrow $ bodyIfPresent srsp
+  return $ ETagged (etagOf srsp) <$> bdy
 
 
 -- | Retrieve a document from DocumentDB
@@ -132,7 +133,7 @@ createDocument :: (DBSocketMonad m, ToJSON a, FromJSON a)
   -> a
   -> m (ETagged a)
 createDocument res@(CollectionId db coll) doc = do
-  (ETagged etag bdy) <- sendSocketRequest SocketRequest {
+  (SocketResponse c rhdrs bdy) <- sendSocketRequest SocketRequest {
     srMethod = HT.POST,
     srContent = A.encode doc,
     srResourceType = "docs",
@@ -141,7 +142,7 @@ createDocument res@(CollectionId db coll) doc = do
     srHeaders = [AH.acceptJSON, AH.contentJSON]
     }
 
-  ETagged etag <$> decodeOrThrow bdy
+  ETagged (etagOf rhdrs) <$> decodeOrThrow bdy
 
 
 -- | Retrieve a document from DocumentDB
@@ -150,7 +151,7 @@ replaceDocument :: (DBSocketMonad m, ToJSON a, FromJSON a)
   -> a
   -> m (ETagged a)
 replaceDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) doc = do
-  (ETagged etag bdy) <- sendSocketRequest SocketRequest {
+  (SocketResponse c rhdrs bdy) <- sendSocketRequest SocketRequest {
     srMethod = HT.PUT,
     srContent = A.encode doc,
     srResourceType = "docs",
@@ -159,7 +160,7 @@ replaceDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) doc 
     srHeaders = maybeAddHeader ifMatch tag [AH.acceptJSON, AH.contentJSON]
     }
 
-  ETagged etag <$> decodeOrThrow bdy
+  ETagged (etagOf rhdrs) <$> decodeOrThrow bdy
 
 
 -- | Delete a document from DocumentDB
@@ -203,7 +204,7 @@ queryDocuments :: (DBSocketMonad m, FromJSON a)
   -> DBQueryParam
   -> m (DBQueryParam, [a])
 queryDocuments res@(CollectionId db coll) sql dbQParams = do
-  (ETagged etag bdy) <- sendSocketRequest SocketRequest {
+  (SocketResponse c rhdrs bdy) <- sendSocketRequest SocketRequest {
     srMethod = HT.POST,
     srContent = A.encode sql,
     srResourceType = "docs",
@@ -212,4 +213,11 @@ queryDocuments res@(CollectionId db coll) sql dbQParams = do
     srHeaders = dbQueryParamToHeaders dbQParams ++ [AH.isQuery, AH.acceptJSON, AH.contentJSONQuery]
     }
   dcs <- decodeOrThrow bdy
-  return (dbQParams, documentsListed dcs)
+  let dbQParams' = maybeUpdateCT dbQParams rhdrs
+  return (dbQParams', documentsListed dcs)
+  where
+    maybeUpdateCT dbQParams rhdrs = dbQParams {
+      continuationToken =
+        maybe (continuationToken dbQParams) T.decodeUtf8
+        $ lookup AH.continuation rhdrs
+    }

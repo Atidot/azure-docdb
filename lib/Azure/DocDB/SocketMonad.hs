@@ -8,6 +8,7 @@ module Azure.DocDB.SocketMonad (
   DBSocketMonad(..),
   DBSocketT(..),
   SocketRequest(..),
+  SocketResponse(..),
   DBError(..),
   execDBSocketT,
   mkDBSocketState
@@ -72,6 +73,16 @@ data SocketRequest = SocketRequest {
   srContent :: L.ByteString
   }
 
+data SocketResponse = SocketResponse {
+  srspStatusCode :: Int,
+
+  -- | Additional headers to pass
+  srspHeaders :: [HT.Header],
+
+  -- | Content JSON
+  srspContent :: L.ByteString
+
+  }
 
 data DBError
   = DBServiceError T.Text
@@ -88,7 +99,7 @@ data DBError
 -- | A socket monad can send requests and receive response bodies
 class MonadError DBError m => DBSocketMonad m where
   -- | Send a socket request
-  sendSocketRequest :: SocketRequest -> m (ETagged L.ByteString)
+  sendSocketRequest :: SocketRequest -> m SocketResponse
 
 
 newtype DBSocketT m a = DBSocketT {
@@ -134,12 +145,6 @@ mkDebuggable f req = do
   return rspTmp
 
 
-responseETag :: HT.ResponseHeaders -> Maybe ETag
-responseETag = fmap decodeETag . lookup HT.hETag
-  where
-    decodeETag = ETag . T.decodeUtf8
-
-
 instance Monad m => MonadError DBError (DBSocketT m) where
   throwError e = DBSocketT $ throwError e
   catchError (DBSocketT ma) fema = DBSocketT $ catchError ma (runDBSocketT . fema)
@@ -169,7 +174,6 @@ instance MonadIO m => DBSocketMonad (DBSocketT m) where
 
     let status = responseStatus response
     let statusText = T.decodeUtf8 . HT.statusMessage $ status
-    let hdrs = responseHeaders response
 
     case HT.statusCode status of
       403 -> throwError DBForbidden
@@ -179,7 +183,7 @@ instance MonadIO m => DBSocketMonad (DBSocketT m) where
       413 -> throwError DBEntityTooLarge
       code | code >= 400 && code < 500 -> throwError $ DBBadRequest statusText
       code | code >= 500 -> throwError $ DBServiceError statusText
-      _ -> return $ ETagged (responseETag hdrs) (responseBody response)
+      _ -> return . responseToSocketResponse $ response
     --
     where
       --
@@ -197,3 +201,8 @@ instance MonadIO m => DBSocketMonad (DBSocketT m) where
         AH.modifyHeaders (\headers -> headers ++ srHeaders socketRequest) .
         AH.addHeader (AH.msDate, toHeader when) .
         AH.addHeader (HT.hAuthorization, toHeader docDBSignature)
+      responseToSocketResponse :: Response L.ByteString -> SocketResponse
+      responseToSocketResponse response = SocketResponse
+        (HT.statusCode $ responseStatus response)
+        (responseHeaders response)
+        (responseBody response)
