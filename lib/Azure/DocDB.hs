@@ -5,7 +5,6 @@ module Azure.DocDB (
 
   ETag(..),
   ETagged(..),
-  ProvideETag(..),
 
   CollectionId(..),
   DocumentId(..),
@@ -18,7 +17,6 @@ import Azure.DocDB.Store
 import Azure.DocDB.ETag (
   ETag(..),
   ETagged(..),
-  ProvideETag(..),
   )
 import Azure.DocDB.ResourceId (
   CollectionId(..),

@@ -41,9 +41,6 @@ instance FromJSON a => FromJSON (DBDocument a) where
     <*> parseJSON x
   parseJSON _ = fail "DBDocument"
 
-instance ProvideETag (DBDocument a) where
-  etagOf = Just . dbdETag
-
 
 -- | List of documents retrieved from the store
 newtype DocumentsList a = DocumentsList {

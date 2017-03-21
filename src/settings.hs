@@ -40,13 +40,13 @@ data Settings = Settings {
   }
 
 instance FromJSON AuthSettings where
-  parseJSON (Object v) = AuthSettings
+  parseJSON = withObject "AuthSettings" $ \v -> AuthSettings
     <$> v .: "primary"
     <*> v .: "secondary"
     <*> v .: "connection"
 
 instance FromJSON Settings where
-  parseJSON (Object v) = Settings
+  parseJSON = withObject "Settings" $ \v -> Settings
     <$> v .: "accountEndpoint"
     <*> v .: "auth"
     <*> v .: "collection"

@@ -21,20 +21,16 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as HT
 
---import Azure.DocDB.Auth
+import           Control.Lens (set)
+import           Network.HTTP.Types.Header (hIfMatch, hIfNoneMatch)
+import           Web.HttpApiData (ToHttpApiData(..))
+
 import Azure.DocDB.Store.DBDocument
 import Azure.DocDB.Store.List
 import Azure.DocDB.ETag
 import Azure.DocDB.ResourceId
 import Azure.DocDB.SocketMonad
 import qualified Azure.DocDB.ServiceHeader as AH
-
-
-
-
--- | Prepend a header to a request, if a value is present to add
-maybeAddHeader :: (a -> HT.Header) -> Maybe a -> [HT.Header] -> [HT.Header]
-maybeAddHeader mkHeader = maybe id ((:) . mkHeader)
 
 
 -- | Parse JSON within a failable monad
@@ -60,11 +56,12 @@ getDocument (ETagged tag res@(DocumentId (CollectionId db coll) pdocId)) = do
     srResourceType = "docs",
     srResourceLink = resourceLink res,
     srUriPath = "dbs" </> db </> "colls" </> coll </> "docs" </> pdocId,
-    srHeaders = maybeAddHeader ifNoneMatch tag [AH.acceptJSON]
+    srHeaders =
+      set (AH.header' hIfNoneMatch) (toHeader <$> tag)
+      [AH.acceptJSON]
     }
 
   traverse decodeOrThrow $ bodyIfPresent srsp
-
 
 -- | Retrieve a document from DocumentDB
 createDocument :: (DBSocketMonad m, ToJSON a, FromJSON a)
@@ -96,7 +93,9 @@ replaceDocument (ETagged tag res@(DocumentId (CollectionId db coll) pdocId)) doc
     srResourceType = "docs",
     srResourceLink = resourceLink res,
     srUriPath = "dbs" </> db </> "colls" </> coll </> "docs" </> pdocId,
-    srHeaders = maybeAddHeader ifMatch tag [AH.acceptJSON, AH.contentJSON]
+    srHeaders =
+      set (AH.header' hIfMatch) (toHeader <$> tag)
+      [AH.acceptJSON, AH.contentJSON]
     }
 
   decodeOrThrow bdy
@@ -113,5 +112,7 @@ deleteDocument (ETagged tag res@(DocumentId (CollectionId db coll) pdocId)) =
     srResourceType = "docs",
     srResourceLink = resourceLink res,
     srUriPath = "dbs" </> db </> "colls" </> coll </> "docs" </> pdocId,
-    srHeaders = maybeAddHeader ifMatch tag [AH.acceptJSON, AH.contentJSON]
+    srHeaders =
+      set (AH.header' hIfMatch) (toHeader <$> tag)
+      [AH.acceptJSON, AH.contentJSON]
     }

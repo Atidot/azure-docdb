@@ -1,16 +1,16 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 
 module Azure.DocDB.ETag (
   ETag(..),
   ETagged(..),
-  ProvideETag(..),
   ifMatch,
   ifNoneMatch,
   ) where
 
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import           Network.HTTP.Types.Header (Header, ResponseHeaders, hIfMatch, hIfNoneMatch, hETag)
+import           Network.HTTP.Types.Header (Header, hIfMatch, hIfNoneMatch)
 import           Web.HttpApiData (ToHttpApiData(..))
 
 
@@ -42,13 +42,10 @@ instance Monad ETagged where
     where
       (ETagged t2 n) = f a
 
-class ProvideETag a where
-  etagOf :: a -> Maybe ETag
 
-instance ProvideETag ResponseHeaders where
-  etagOf = fmap decodeETag . lookup hETag
-    where
-      decodeETag = ETag . T.decodeUtf8
+-- TODO: These functions could be made into lenses, allowing for both retrieval
+-- and setting an ETag header.
+-- :: (Eq a, ToHttpApiData b, FromHttpApiData b) => Lens' [(a, b)] (Maybe b)
 
 ifMatch :: ETag -> Header
 ifMatch tag = (hIfMatch, toHeader tag)
