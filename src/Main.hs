@@ -8,6 +8,7 @@ module Main where
 
 import           Control.Monad.Except
 import           Control.Monad.IO.Class
+import           Control.Monad.State
 import           Data.Aeson ((.=))
 import qualified Data.Aeson as A
 import qualified Data.ByteString as B
@@ -80,9 +81,9 @@ test1 collection = do
 
   -- queryDocuments
   sep
-  (_, x :: [DBDocument A.Value]) <- queryDocuments collection (
-    DBSQL "SELECT * FROM Docs d WHERE d.Hello = @h"
-      ["@h" .= (1011 :: Int)]) dbQueryParamSimple
+  x :: [DBDocument A.Value] <- evalStateT
+    (queryDocuments collection sqlQuery)
+    dbQueryParamSimple
   liftIO $ print x
 
   liftIO $ print "Done Tests"
@@ -90,6 +91,8 @@ test1 collection = do
   where
     docId = collection #> "myTestDoc"
     sep = liftIO $ putStrLn $ replicate 20 '-'
+    sqlQuery = DBSQL "SELECT * FROM Docs d WHERE d.Hello = @h"
+      ["@h" .= (1011 :: Int)]
 
 
 safeRun :: (Show a, MonadIO m, MonadError a m) => m () -> m ()

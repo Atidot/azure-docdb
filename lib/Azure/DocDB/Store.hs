@@ -16,7 +16,7 @@ module Azure.DocDB.Store (
   queryDocuments,
   ) where
 
-import           Control.Lens (makeLenses, set, (^.))
+import           Control.Lens (makeLenses, set, (^.), (.~), (&))
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Except
@@ -185,14 +185,14 @@ dbQueryParamToHeaders p = catMaybes
     numToB = L.toStrict . B.toLazyByteString . B.stringUtf8 . show
 
 
--- | Query the document store for matching records
+-- | Query DocumentDB for documents matching the query provided
 queryDocuments :: (DBSocketMonad m, FromJSON a)
   => CollectionId
   -> DBSQL
-  -> DBQueryParam
-  -> m (DBQueryParam, [DBDocument a])
-queryDocuments res@(CollectionId db coll) sql dbQParams = do
-  (SocketResponse c rhdrs bdy) <- sendSocketRequest SocketRequest {
+  -> StateT DBQueryParam m [DBDocument a]
+queryDocuments res@(CollectionId db coll) sql = do
+  dbQParams <- get
+  (SocketResponse c rhdrs bdy) <- lift $ sendSocketRequest SocketRequest {
     srMethod = HT.POST,
     srContent = A.encode sql,
     srResourceType = "docs",
@@ -201,8 +201,8 @@ queryDocuments res@(CollectionId db coll) sql dbQParams = do
     srHeaders = dbQueryParamToHeaders dbQParams ++ [AH.isQuery, AH.acceptJSON, AH.contentJSONQuery]
     }
   dcs <- decodeOrThrow bdy
-  return (set continuationToken (nextContinuation rhdrs) dbQParams
-         , documentsListed dcs)
+  put (dbQParams & continuationToken .~ nextContinuation rhdrs)
+  return $ documentsListed dcs
   where
     -- Get the continuation token for the next request (or empty on the last page)
     nextContinuation :: [HT.Header] -> Maybe T.Text
