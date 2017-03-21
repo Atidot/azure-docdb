@@ -151,6 +151,7 @@ instance MonadIO m => DBSocketMonad (DBSocketT m) where
     -- Pick a timestamp for signing
     now <- MSDate <$> liftIO getCurrentTime
 
+    -- Sign the request
     let signature = fsign SigningParams {
       spMethod = srMethod socketRequest,
       spResourceType = srResourceType socketRequest,
@@ -158,7 +159,13 @@ instance MonadIO m => DBSocketMonad (DBSocketT m) where
       spWhen = now
       }
 
-    response <- liftIO $ sendHttps (withUpdatedHeaders now signature req)
+    -- Build and issue the request
+    response <- liftIO
+      . sendHttps
+      . setRequestContent
+      . setRequestTarget
+      . withUpdatedHeaders now signature
+      $ req
 
     let status = responseStatus response
     let statusText = T.decodeUtf8 . HT.statusMessage $ status
@@ -175,13 +182,18 @@ instance MonadIO m => DBSocketMonad (DBSocketT m) where
       _ -> return $ ETagged (responseETag hdrs) (responseBody response)
     --
     where
+      --
+      setRequestTarget :: Request  -> Request
+      setRequestTarget req = req {
+          method = HT.renderStdMethod $ srMethod socketRequest,
+          path = path req </> T.encodeUtf8 (srUriPath socketRequest)
+          }
+      setRequestContent :: Request  -> Request
+      setRequestContent req = req {
+          requestBody = RequestBodyLBS (srContent socketRequest)
+          }
       withUpdatedHeaders :: ToHttpApiData a => MSDate -> a -> Request  -> Request
       withUpdatedHeaders when docDBSignature =
-        (\req -> req {
-          path = path req </> T.encodeUtf8 (srUriPath socketRequest),
-          method = HT.renderStdMethod $ srMethod socketRequest,
-          requestBody = RequestBodyLBS (srContent socketRequest)
-          }) .
         AH.modifyHeaders (\headers -> headers ++ srHeaders socketRequest) .
         AH.addHeader (AH.msDate, toHeader when) .
         AH.addHeader (HT.hAuthorization, toHeader docDBSignature)
