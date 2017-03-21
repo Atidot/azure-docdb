@@ -10,7 +10,6 @@ module Azure.DocDB.Auth (
 
 
 import qualified Crypto.Hash.Algorithms as CH
-import qualified Crypto.Hash as CH
 import qualified Crypto.MAC.HMAC as HM
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
@@ -95,7 +94,7 @@ signingPayload (SigningParams method resourceType path when) =
   mconcat . appendNL $ parts
   where
     parts = [lcMethod, lcRecourceType, path, lcWhen, ""]
-    appendNL parts = parts >>= flip (:) ["\n"]
+    appendNL pieces = pieces >>= flip (:) ["\n"]
     lcMethod = T.toLower . T.pack . show $ method
     lcWhen = T.toLower . T.pack . show $ when
     lcRecourceType = T.toLower resourceType

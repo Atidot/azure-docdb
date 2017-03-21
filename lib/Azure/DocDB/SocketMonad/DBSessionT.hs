@@ -11,36 +11,20 @@
 -- when this type of consistency is needed.
 -----------------------------------------------------------------------------
 
-module Azure.DocDB.SessionMonad (
-  SessionToken(..),
-  DBSessionMonad(..),
+module Azure.DocDB.SocketMonad.DBSessionT (
   DBSessionT,
   runDBSessionT,
   evalDBSessionT,
   ) where
 
 import           Control.Lens (Lens', lens, (&), (.~), (^.))
-import           Control.Monad
 import           Control.Monad.Except
 import           Control.Monad.State
-import           Control.Monad.Trans
-import qualified Data.ByteString as B
-import           Data.Maybe (fromMaybe)
 import qualified Network.HTTP.Types.Header as HT
 
-import           Azure.DocDB.SocketMonad
+import           Azure.DocDB.SocketMonad.Class
 import qualified Azure.DocDB.ServiceHeader as AH
 
-
--- | A token used with session level consistency.
-newtype SessionToken = SessionToken {
-  sessionTokenValue :: B.ByteString
-  } deriving (Eq)
-
-
--- | Monad that stores session information
-class Monad m => DBSessionMonad m where
-  overSession :: (Maybe SessionToken -> (Maybe SessionToken, a)) -> m a
 
 
 -- | DocumentDB session chaining transformer.  Captures session headers

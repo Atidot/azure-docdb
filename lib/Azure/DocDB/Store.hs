@@ -13,32 +13,15 @@ module Azure.DocDB.Store (
   module Azure.DocDB.Store.List,
   ) where
 
-import           Control.Lens (makeLenses, set, (^.), (.~), (&))
-import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Except
-import           Control.Monad.State
-import           Control.Monad.Trans
-import           Control.Monad.Catch
-import           Control.Monad.IO.Class
-import           Data.Aeson (ToJSON(..), FromJSON(..), Value(..), (.:), (.:?), (.=))
+import           Data.Aeson (ToJSON(..), FromJSON(..))
 import qualified Data.Aeson as A
-import qualified Data.Aeson.Types as A
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as L
-import qualified Data.List as Lst
-import           Data.Maybe (catMaybes)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import           Network.HTTP.Client as HC
-import           Network.HTTP.Client.TLS (tlsManagerSettings)
 import qualified Network.HTTP.Types as HT
-import qualified Network.HTTP.Types.Header as HT
-import           Network.HTTP.Types.Status (statusIsSuccessful)
-import           Web.HttpApiData (ToHttpApiData(..))
 
-import Azure.DocDB.Auth
+--import Azure.DocDB.Auth
 import Azure.DocDB.Store.DBDocument
 import Azure.DocDB.Store.List
 import Azure.DocDB.ETag
@@ -55,11 +38,11 @@ maybeAddHeader mkHeader = maybe id ((:) . mkHeader)
 
 
 -- | Prepend an item to a list
-maybePrepend :: Maybe b -> [b] -> [b]
-maybePrepend = maybe id (:)
+--maybePrepend :: Maybe b -> [b] -> [b]
+--maybePrepend = maybe id (:)
 
-instance ProvideETag SocketResponse where
-  etagOf = etagOf . srspHeaders
+--instance ProvideETag SocketResponse where
+--  etagOf = etagOf . srspHeaders
 
 -- | Parse JSON within a failable monad
 decodeOrThrow :: (MonadError DBError m, FromJSON a) => L.ByteString -> m a
@@ -70,20 +53,20 @@ decodeOrThrow bdy =
 
 
 bodyIfPresent :: SocketResponse -> Maybe L.ByteString
-bodyIfPresent (SocketResponse 304 _ bdy) = Nothing
+bodyIfPresent (SocketResponse 304 _ _) = Nothing
 bodyIfPresent (SocketResponse _ _ bdy) = Just bdy
 
 -- | Retrieve a document from DocumentDB
 getDocument :: (DBSocketMonad m, FromJSON a)
   => ETagged DocumentId
   -> m (Maybe (DBDocument a))
-getDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) = do
+getDocument (ETagged tag res@(DocumentId (CollectionId db coll) pdocId)) = do
   srsp <- sendSocketRequest SocketRequest {
     srMethod = HT.GET,
     srContent = mempty,
     srResourceType = "docs",
     srResourceLink = resourceLink res,
-    srUriPath = "dbs" </> db </> "colls" </> coll </> "docs" </> docId,
+    srUriPath = "dbs" </> db </> "colls" </> coll </> "docs" </> pdocId,
     srHeaders = maybeAddHeader ifNoneMatch tag [AH.acceptJSON]
     }
 
@@ -96,7 +79,7 @@ createDocument :: (DBSocketMonad m, ToJSON a, FromJSON a)
   -> a
   -> m (DBDocument a)
 createDocument res@(CollectionId db coll) doc = do
-  (SocketResponse c rhdrs bdy) <- sendSocketRequest SocketRequest {
+  (SocketResponse _ _ bdy) <- sendSocketRequest SocketRequest {
     srMethod = HT.POST,
     srContent = A.encode doc,
     srResourceType = "docs",
@@ -113,13 +96,13 @@ replaceDocument :: (DBSocketMonad m, ToJSON a, FromJSON a)
   => ETagged DocumentId
   -> a
   -> m (DBDocument a)
-replaceDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) doc = do
-  (SocketResponse c rhdrs bdy) <- sendSocketRequest SocketRequest {
+replaceDocument (ETagged tag res@(DocumentId (CollectionId db coll) pdocId)) doc = do
+  (SocketResponse _ _ bdy) <- sendSocketRequest SocketRequest {
     srMethod = HT.PUT,
     srContent = A.encode doc,
     srResourceType = "docs",
     srResourceLink = resourceLink res,
-    srUriPath = "dbs" </> db </> "colls" </> coll </> "docs" </> docId,
+    srUriPath = "dbs" </> db </> "colls" </> coll </> "docs" </> pdocId,
     srHeaders = maybeAddHeader ifMatch tag [AH.acceptJSON, AH.contentJSON]
     }
 
@@ -130,12 +113,12 @@ replaceDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) doc 
 deleteDocument :: (DBSocketMonad m)
   => ETagged DocumentId
   -> m ()
-deleteDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) =
+deleteDocument (ETagged tag res@(DocumentId (CollectionId db coll) pdocId)) =
   void $ sendSocketRequest SocketRequest {
     srMethod = HT.DELETE,
     srContent = mempty,
     srResourceType = "docs",
     srResourceLink = resourceLink res,
-    srUriPath = "dbs" </> db </> "colls" </> coll </> "docs" </> docId,
+    srUriPath = "dbs" </> db </> "colls" </> coll </> "docs" </> pdocId,
     srHeaders = maybeAddHeader ifMatch tag [AH.acceptJSON, AH.contentJSON]
     }

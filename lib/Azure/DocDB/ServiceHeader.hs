@@ -4,7 +4,6 @@
 module Azure.DocDB.ServiceHeader where
 
 import Control.Lens (lens)
-import qualified Network.HTTP.Client as HC
 import qualified Network.HTTP.Types.Header as HT
 
 
@@ -39,7 +38,12 @@ msDate :: HT.HeaderName
 msDate = "x-ms-date"
 
 -- | Get or set a named header
---header' :: Eq k => k -> Lens' [(k, v)] (Maybe v)
+-- header' :: Eq k => k -> Lens' [(k, v)] (Maybe v)
+header' :: (Functor f, Eq a)
+  => a
+  -> (Maybe b -> f (Maybe b))
+  -> [(a, b)]
+  -> f [(a, b)]
 header' name = lens (lookup name) setOrRemove
   where
     setOrRemove lst =

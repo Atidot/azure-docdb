@@ -24,6 +24,7 @@ instance ToHttpApiData ETag where
 -- | A value which may have an associated entity tag
 data ETagged a = ETagged (Maybe ETag) a deriving (Eq, Ord, Show)
 
+etagMerge :: Eq t => Maybe t -> Maybe t -> Maybe t
 etagMerge Nothing x = x
 etagMerge x Nothing = x
 etagMerge x y | x == y = x

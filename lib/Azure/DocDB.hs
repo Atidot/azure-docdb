@@ -1,7 +1,7 @@
 
 module Azure.DocDB (
   module Azure.DocDB.Store,
-  module Azure.DocDB.SessionMonad,
+  module Azure.DocDB.SocketMonad,
 
   ETag(..),
   ETagged(..),
@@ -11,16 +11,9 @@ module Azure.DocDB (
   DocumentId(..),
   ExtendPath(..),
 
-  DBSocketState,
-  DBSocketMonad,
-  DBSocketT,
-  DBError(..),
-  execDBSocketT,
-  mkDBSocketState
   ) where
 
 import Azure.DocDB.Store
-import Azure.DocDB.SessionMonad
 
 import Azure.DocDB.ETag (
   ETag(..),
@@ -32,11 +25,5 @@ import Azure.DocDB.ResourceId (
   DocumentId(..),
   ExtendPath(..),
   )
-import Azure.DocDB.SocketMonad (
-  DBSocketState,
-  DBSocketMonad,
-  DBSocketT,
-  DBError(..),
-  execDBSocketT,
-  mkDBSocketState,
-  )
+
+import Azure.DocDB.SocketMonad

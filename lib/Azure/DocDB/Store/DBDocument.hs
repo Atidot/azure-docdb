@@ -7,7 +7,7 @@ module Azure.DocDB.Store.DBDocument (
   ) where
 
 --
-import           Data.Aeson (ToJSON(..), FromJSON(..), Value(..), (.:), (.:?))
+import           Data.Aeson (FromJSON(..), Value(..), (.:), (.:?))
 import qualified Data.Text as T
 import           Azure.DocDB.ETag
 
@@ -39,6 +39,7 @@ instance FromJSON a => FromJSON (DBDocument a) where
     <*> fmap ETag (v .: "_etag")
     <*> v .:? "attachments"
     <*> parseJSON x
+  parseJSON _ = fail "DBDocument"
 
 instance ProvideETag (DBDocument a) where
   etagOf = Just . dbdETag
@@ -52,3 +53,4 @@ newtype DocumentsList a = DocumentsList {
 instance FromJSON a => FromJSON (DocumentsList a) where
   parseJSON (Object v) = DocumentsList
     <$> v .: "Documents"
+  parseJSON _ = fail "DocumentsList"

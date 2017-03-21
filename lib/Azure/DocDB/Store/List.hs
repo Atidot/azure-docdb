@@ -24,20 +24,15 @@ import qualified Data.Aeson.Types as A
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as L
-import           Data.Conduit (Source, yield)
-import qualified Data.Conduit as C
+import           Data.Conduit (Source)
 import qualified Data.Conduit.List as C
 import           Data.Maybe (catMaybes, isJust)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import           Network.HTTP.Client as HC
 import qualified Network.HTTP.Types as HT
-import qualified Network.HTTP.Types.Header as HT
 
 
-import Azure.DocDB.Auth
 import Azure.DocDB.Store.DBDocument
-import Azure.DocDB.ETag
 import Azure.DocDB.ResourceId
 import Azure.DocDB.SocketMonad
 import qualified Azure.DocDB.ServiceHeader as AH
@@ -70,6 +65,7 @@ data DBQueryParam = DBQueryParam {
 
 
 -- | Simple, default query parameters
+dbQueryParamSimple :: DBQueryParam
 dbQueryParamSimple = DBQueryParam Nothing False
 
 
@@ -78,10 +74,12 @@ dbQueryParamSimple = DBQueryParam Nothing False
 newtype ContinuationClause = ContinuationClause (Maybe T.Text) deriving (Eq)
 
 -- | The initial continuation in a paging operation.
+initialContinuation :: ContinuationClause
 initialContinuation = ContinuationClause Nothing
 
 -- | When used after a continuation, indicates whether continuing will
 -- progress or reset to the initial page.
+mayContinue :: ContinuationClause -> Bool
 mayContinue (ContinuationClause t) = isJust t
 
 -- | Get the continuation clause for the next request
@@ -91,6 +89,7 @@ nextContinuation h =
   ContinuationClause (T.decodeUtf8 <$> lookup AH.continuation h)
 
 -- | The continuation header to pass.
+thisContinuation :: ContinuationClause -> Maybe (HT.HeaderName, B.ByteString)
 thisContinuation (ContinuationClause Nothing) = Nothing
 thisContinuation (ContinuationClause (Just text)) =
   Just (AH.continuation, T.encodeUtf8 text)
@@ -126,7 +125,7 @@ listDocuments :: (DBSocketMonad m, ToJSON a, FromJSON a)
   -> ContinuationClause
   -> m (ContinuationClause, [DBDocument a])
 listDocuments res@(CollectionId db coll) ctoken = do
-  (SocketResponse c rhdrs bdy) <- sendSocketRequest SocketRequest {
+  (SocketResponse _ rhdrs bdy) <- sendSocketRequest SocketRequest {
     srMethod = HT.GET,
     srContent = mempty,
     srResourceType = "docs",
@@ -147,7 +146,7 @@ queryDocuments :: (DBSocketMonad m, FromJSON a)
   -> ContinuationClause
   -> m (ContinuationClause, [DBDocument a])
 queryDocuments dbQParams res@(CollectionId db coll) sql ctoken = do
-  (SocketResponse c rhdrs bdy) <- sendSocketRequest SocketRequest {
+  (SocketResponse _ rhdrs bdy) <- sendSocketRequest SocketRequest {
     srMethod = HT.POST,
     srContent = A.encode sql,
     srResourceType = "docs",
@@ -163,9 +162,9 @@ queryDocuments dbQParams res@(CollectionId db coll) sql ctoken = do
   where
 
     dbQueryParamToHeaders :: DBQueryParam -> ContinuationClause -> [HT.Header]
-    dbQueryParamToHeaders p ctoken = catMaybes
+    dbQueryParamToHeaders p token = catMaybes
       [ (,) AH.maxItemCount . numToB <$> maxItemCount p
-      , thisContinuation ctoken
+      , thisContinuation token
       , (AH.queryCrossPartition, "True") <$ guard (enableCrossPartition p)
       ]
 
