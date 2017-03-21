@@ -1,5 +1,11 @@
 {-# LANGUAGE FlexibleContexts #-}
 
+-----------------------------------------------------------------------------
+-- | DBSocketMonad typeclass and related types.
+-- Used as a replacement in replacement of Network.HTTP Request/Response
+-- in order to carry additional data needed for request signing.
+-----------------------------------------------------------------------------
+
 module Azure.DocDB.SocketMonad.Class (
   DBError(..),
   SocketRequest(..),

@@ -1,6 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts  #-}
 
+-----------------------------------------------------------------------------
+-- | List and query operations for documents
+-- Exposes continuation token style calls as well as Conduit
+-----------------------------------------------------------------------------
+
 module Azure.DocDB.Store.List (
   ContinuationClause(..),
   DBSQL(..),

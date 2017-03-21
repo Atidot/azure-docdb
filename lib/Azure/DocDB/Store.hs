@@ -37,13 +37,6 @@ maybeAddHeader :: (a -> HT.Header) -> Maybe a -> [HT.Header] -> [HT.Header]
 maybeAddHeader mkHeader = maybe id ((:) . mkHeader)
 
 
--- | Prepend an item to a list
---maybePrepend :: Maybe b -> [b] -> [b]
---maybePrepend = maybe id (:)
-
---instance ProvideETag SocketResponse where
---  etagOf = etagOf . srspHeaders
-
 -- | Parse JSON within a failable monad
 decodeOrThrow :: (MonadError DBError m, FromJSON a) => L.ByteString -> m a
 decodeOrThrow bdy =
