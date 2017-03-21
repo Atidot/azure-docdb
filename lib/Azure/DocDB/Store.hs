@@ -186,13 +186,13 @@ dbQueryParamToHeaders p = catMaybes
 
 
 -- | Query DocumentDB for documents matching the query provided
-queryDocuments :: (DBSocketMonad m, FromJSON a)
+queryDocuments :: (MonadState DBQueryParam m, DBSocketMonad m, FromJSON a)
   => CollectionId
   -> DBSQL
-  -> StateT DBQueryParam m [DBDocument a]
+  -> m [DBDocument a]
 queryDocuments res@(CollectionId db coll) sql = do
   dbQParams <- get
-  (SocketResponse c rhdrs bdy) <- lift $ sendSocketRequest SocketRequest {
+  (SocketResponse c rhdrs bdy) <- sendSocketRequest SocketRequest {
     srMethod = HT.POST,
     srContent = A.encode sql,
     srResourceType = "docs",

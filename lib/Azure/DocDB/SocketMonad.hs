@@ -103,6 +103,10 @@ class MonadError DBError m => DBSocketMonad m where
   sendSocketRequest :: SocketRequest -> m SocketResponse
 
 
+instance DBSocketMonad m => DBSocketMonad (StateT s m) where
+  sendSocketRequest = lift . sendSocketRequest
+
+  
 newtype DBSocketT m a = DBSocketT {
   runDBSocketT :: ExceptT DBError (StateT DBSocketState m) a
   } deriving (Functor, Applicative, Monad, MonadIO)
