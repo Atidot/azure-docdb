@@ -1,19 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE TemplateHaskell   #-}
 
 module Azure.DocDB.Store (
   CollectionId(..),
   DocumentId(..),
   DBDocument(..),
-  DBSQL(..),
-  DocumentsList(..),
-  dbQueryParamSimple,
   createDocument,
   deleteDocument,
   getDocument,
   replaceDocument,
-  queryDocuments,
+
+  module Azure.DocDB.Store.List,
   ) where
 
 import           Control.Lens (makeLenses, set, (^.), (.~), (&))
@@ -43,39 +40,13 @@ import           Web.HttpApiData (ToHttpApiData(..))
 
 import Azure.DocDB.Auth
 import Azure.DocDB.Store.DBDocument
+import Azure.DocDB.Store.List
 import Azure.DocDB.ETag
 import Azure.DocDB.ResourceId
 import Azure.DocDB.SocketMonad
 import qualified Azure.DocDB.ServiceHeader as AH
 
 
--- | SQL query into the document store
-data DBSQL = DBSQL {
-  dbSQL :: T.Text,
-  dbSQLParams :: [A.Pair]
-  } deriving (Eq)
-
-
-instance ToJSON DBSQL where
-  toJSON (DBSQL sql prms) = A.object [
-    "query" .= sql,
-    "parameters" .= (toNameValue <$> prms)
-    ]
-    where
-      toNameValue :: ToJSON a => (T.Text, a) -> Value
-      toNameValue (k, v) = A.object [
-        "value" .= v,
-        "name" .= k
-        ]
-
-
-data DBQueryParam = DBQueryParam {
-  _maxItemCount :: Maybe Int,
-  _continuationToken :: Maybe T.Text,
-  _enableCrossPartition :: Bool
-  }
-
-makeLenses ''DBQueryParam
 
 
 -- | Prepend a header to a request, if a value is present to add
@@ -168,43 +139,3 @@ deleteDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) =
     srUriPath = "dbs" </> db </> "colls" </> coll </> "docs" </> docId,
     srHeaders = maybeAddHeader ifMatch tag [AH.acceptJSON, AH.contentJSON]
     }
-
-
--- Simple, default query parameters
-dbQueryParamSimple = DBQueryParam Nothing Nothing False
-
-
-dbQueryParamToHeaders :: DBQueryParam -> [HT.Header]
-dbQueryParamToHeaders p = catMaybes
-  [ (,) AH.maxItemCount . numToB <$> (p ^. maxItemCount)
-  , (,) AH.continuation . T.encodeUtf8 <$> (p ^. continuationToken)
-  , (AH.queryCrossPartition, "True") <$ guard (p ^. enableCrossPartition)
-  ]
-  where
-    numToB :: (Show a, Num a) => a -> B.ByteString
-    numToB = L.toStrict . B.toLazyByteString . B.stringUtf8 . show
-
-
--- | Query DocumentDB for documents matching the query provided
-queryDocuments :: (MonadState DBQueryParam m, DBSocketMonad m, FromJSON a)
-  => CollectionId
-  -> DBSQL
-  -> m [DBDocument a]
-queryDocuments res@(CollectionId db coll) sql = do
-  dbQParams <- get
-  (SocketResponse c rhdrs bdy) <- sendSocketRequest SocketRequest {
-    srMethod = HT.POST,
-    srContent = A.encode sql,
-    srResourceType = "docs",
-    srResourceLink = resourceLink res,
-    srUriPath = "dbs" </> db </> "colls" </> coll </> "docs",
-    srHeaders = dbQueryParamToHeaders dbQParams ++ [AH.isQuery, AH.acceptJSON, AH.contentJSONQuery]
-    }
-  dcs <- decodeOrThrow bdy
-  put (dbQParams & continuationToken .~ nextContinuation rhdrs)
-  return $ documentsListed dcs
-  where
-    -- Get the continuation token for the next request (or empty on the last page)
-    nextContinuation :: [HT.Header] -> Maybe T.Text
-    nextContinuation h =
-      T.decodeUtf8 <$> lookup AH.continuation h

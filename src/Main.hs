@@ -11,6 +11,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.State
 import           Data.Aeson ((.=))
 import qualified Data.Aeson as A
+import           Data.Conduit (runConduit, awaitForever, Source, (=$), ($$))
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.HashMap.Lazy as HM
@@ -69,28 +70,52 @@ testReplaceDoc taggedId@(ETagged tag (DocumentId collection docName)) = do
   return rslt2
 
 
+testListDocs :: (MonadIO m, DBSocketMonad m)
+  => CollectionId
+  -> m ()
+testListDocs collection = runConduit $
+  docList =$ awaitForever (liftIO . print)
+  where
+    docList :: DBSocketMonad m => Source m (DBDocument A.Value)
+    docList = listAll $ listDocuments collection
+
+
+
+testQueryDocs :: (MonadIO m, DBSocketMonad m)
+  => CollectionId
+  -> m ()
+testQueryDocs collection = docList $$ awaitForever (liftIO . print)
+  where
+    docList :: DBSocketMonad m => Source m (DBDocument A.Value)
+    docList = listAll $ queryDocuments dbQueryParamSimple collection sqlQuery
+
+    sqlQuery = DBSQL "SELECT * FROM Docs d WHERE d.Hello = @h"
+      ["@h" .= (1011 :: Int)]
+
+
 test1 :: (MonadIO m, DBSocketMonad m) => CollectionId -> m ()
 test1 collection = do
+  sep "testGetDoc"
   testGetDoc collection
-  sep
+  sep "testDeleteDoc"
   safeRun $ testDeleteDoc docId
-  sep
+  sep "testCreateDoc"
   etaggedDoc <- testCreateDoc docId
-  sep
+  sep "testReplaceDoc"
   testReplaceDoc (ETagged (etagOf etaggedDoc) docId)
-
-  -- queryDocuments
-  sep
-  x :: [DBDocument A.Value] <- evalStateT
-    (queryDocuments collection sqlQuery)
-    dbQueryParamSimple
-  liftIO $ print x
+  sep "query"
+  testQueryDocs collection
+  sep "testListDocs"
+  testListDocs collection
 
   liftIO $ print "Done Tests"
 
   where
     docId = collection #> "myTestDoc"
-    sep = liftIO $ putStrLn $ replicate 20 '-'
+    sep name = liftIO $ do
+      putStrLn $ replicate 20 '-'
+      putStrLn name
+      putStrLn ""
     sqlQuery = DBSQL "SELECT * FROM Docs d WHERE d.Hello = @h"
       ["@h" .= (1011 :: Int)]
 
