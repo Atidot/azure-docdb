@@ -15,7 +15,7 @@ module Azure.DocDB.SocketMonad (
   ) where
 
 import           Control.Applicative
-import           Control.Lens (Lens', lens, over, set)
+import           Control.Lens (Lens', lens, over, set, view)
 import           Control.Monad
 import           Control.Monad.Except
 import           Control.Monad.State
@@ -49,7 +49,6 @@ data DBSocketState = DBSocketState {
   -- ^ Method to sign requests
 
   sendHttps :: Request -> IO (Response L.ByteString)
-  -- ^ Issue HTTPS requests
   }
 
 
@@ -106,7 +105,7 @@ class MonadError DBError m => DBSocketMonad m where
 instance DBSocketMonad m => DBSocketMonad (StateT s m) where
   sendSocketRequest = lift . sendSocketRequest
 
-  
+
 newtype DBSocketT m a = DBSocketT {
   runDBSocketT :: ExceptT DBError (StateT DBSocketState m) a
   } deriving (Functor, Applicative, Monad, MonadIO)
@@ -215,11 +214,12 @@ instance MonadIO m => DBSocketMonad (DBSocketT m) where
       setRequestContent =
           set requestBody' (RequestBodyLBS (srContent socketRequest))
       -- Append new headers for the outgoing request
-      withUpdatedHeaders :: ToHttpApiData a => MSDate -> a -> Request  -> Request
-      withUpdatedHeaders when docDBSignature =
-        over requestHeaders' (srHeaders socketRequest ++) .
-        over requestHeaders' ((AH.msDate, toHeader when) :) .
-        over requestHeaders' ((HT.hAuthorization, toHeader docDBSignature) :)
+      withUpdatedHeaders :: ToHttpApiData a => MSDate -> a -> Request -> Request
+      withUpdatedHeaders when docDBSignature = over requestHeaders' $
+        set (AH.header' AH.msDate) (Just $ toHeader when) .
+        set (AH.header' HT.hAuthorization) (Just $ toHeader docDBSignature) .
+        (srHeaders socketRequest ++)
+
       responseToSocketResponse :: Response L.ByteString -> SocketResponse
       responseToSocketResponse response = SocketResponse
         (HT.statusCode $ responseStatus response)

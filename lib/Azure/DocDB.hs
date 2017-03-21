@@ -1,6 +1,7 @@
 
 module Azure.DocDB (
   module Azure.DocDB.Store,
+  module Azure.DocDB.SessionMonad,
 
   ETag(..),
   ETagged(..),
@@ -19,6 +20,7 @@ module Azure.DocDB (
   ) where
 
 import Azure.DocDB.Store
+import Azure.DocDB.SessionMonad
 
 import Azure.DocDB.ETag (
   ETag(..),

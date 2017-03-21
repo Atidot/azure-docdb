@@ -137,6 +137,8 @@ main = do
   manager <- newManager tlsManagerSettings
   state <- mkDBSocketState pwd ("https://" `mappend` accountEndpoint settings) manager
 
-  execDBSocketT (safeRun $ test1 testCollection) state
+  execDBSocketT
+    (evalDBSessionT (safeRun $ test1 testCollection))
+    state
 
   print "done"

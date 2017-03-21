@@ -1,8 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
 
 module Azure.DocDB.ServiceHeader where
 
-
+import Control.Lens (lens)
 import qualified Network.HTTP.Client as HC
 import qualified Network.HTTP.Types.Header as HT
 
@@ -36,3 +37,13 @@ sessionToken = "x-ms-session-token"
 
 msDate :: HT.HeaderName
 msDate = "x-ms-date"
+
+-- | Get or set a named header
+--header' :: Eq k => k -> Lens' [(k, v)] (Maybe v)
+header' name = lens (lookup name) setOrRemove
+  where
+    setOrRemove lst =
+      ($ remove lst)  -- apply to filtered list (remove old value)
+      . maybe id (:)  -- either no change or cons
+      . fmap (name, ) -- make key + value pair
+    remove = filter ((/= name) . fst)
