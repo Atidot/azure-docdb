@@ -1,6 +1,6 @@
 
 module Azure.DocDB (
-  module Azure.DocDB.DocumentStore,
+  module Azure.DocDB.Store,
 
   ETag(..),
   ETagged(..),
@@ -17,18 +17,18 @@ module Azure.DocDB (
   mkDBSocketState
   ) where
 
-import Azure.DocDB.DocumentStore
+import Azure.DocDB.Store
 
 import Azure.DocDB.ETag (
   ETag(..),
   ETagged(..)
   )
-import Azure.DocDB.DBResourceId (
+import Azure.DocDB.ResourceId (
   CollectionId(..),
   DocumentId(..),
   ExtendPath(..),
   )
-import Azure.DocDB.DBSocketMonad (
+import Azure.DocDB.SocketMonad (
   DBSocketState,
   DBSocketMonad,
   DBSocketT,

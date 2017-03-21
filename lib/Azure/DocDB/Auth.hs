@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Azure.DocDB.DocDBAuth (
+module Azure.DocDB.Auth (
   DocDBSignature(..),
   SigningParams(..),
   MSDate(..),

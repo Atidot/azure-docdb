@@ -4,7 +4,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Azure.DocDB.DocumentStore (
+module Azure.DocDB.Store (
   CollectionId(..),
   DocumentId(..),
   DBSQL(..),
@@ -40,10 +40,10 @@ import qualified Network.HTTP.Types.Header as HT
 import           Network.HTTP.Types.Status (statusIsSuccessful)
 import           Web.HttpApiData (ToHttpApiData(..))
 
-import Azure.DocDB.DocDBAuth
+import Azure.DocDB.Auth
 import Azure.DocDB.ETag
-import Azure.DocDB.DBResourceId
-import Azure.DocDB.DBSocketMonad
+import Azure.DocDB.ResourceId
+import Azure.DocDB.SocketMonad
 
 
 -- | SQL query into the document store

@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
-module Azure.DocDB.DBResourceId (
+module Azure.DocDB.ResourceId (
   DBResourceId(..),
   CollectionId(..),
   DocumentId(..),

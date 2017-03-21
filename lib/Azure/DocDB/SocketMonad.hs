@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Azure.DocDB.DBSocketMonad (
+module Azure.DocDB.SocketMonad (
   DBSocketState,
   DBSocketMonad(..),
   DBSocketT(..),
@@ -35,9 +35,9 @@ import qualified Network.HTTP.Types.Header as HT
 import           Network.HTTP.Types.Status (statusIsSuccessful)
 import           Web.HttpApiData (ToHttpApiData(..))
 
-import Azure.DocDB.DocDBAuth
+import Azure.DocDB.Auth
 import Azure.DocDB.ETag
-import Azure.DocDB.DBResourceId
+import Azure.DocDB.ResourceId
 
 
 -- | Socket state for DB connections

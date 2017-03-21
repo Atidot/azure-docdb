@@ -19,10 +19,10 @@ library
   hs-source-dirs:      lib
   default-language:    Haskell2010
   exposed-modules:     Azure.DocDB
-                     , Azure.DocDB.DBResourceId
-                     , Azure.DocDB.DBSocketMonad
-                     , Azure.DocDB.DocDBAuth
-                     , Azure.DocDB.DocumentStore
+                     , Azure.DocDB.ResourceId
+                     , Azure.DocDB.SocketMonad
+                     , Azure.DocDB.Auth
+                     , Azure.DocDB.Store
                      , Azure.DocDB.ETag
   build-depends:       base >= 4.7 && < 5
                      , aeson
