@@ -8,15 +8,23 @@ module Azure.DocDB.ResourceId (
   DocumentId(..),
   ExtendPath(..),
   (</>),
+  collectionIdProxy,
+  documentIdProxy,
   ) where
 
 
 import qualified Data.Text as T
-import Data.String (IsString)
+import           Data.String (IsString)
+import           Data.Proxy
 
 -- | A DB resource can provide resourceLinks used for signing
-class DBResourceId a where
+class DBResourceId a b | a -> b where
+  -- | The resource link for an instance of a resource
   resourceLink :: a -> T.Text
+  -- | The resource path for the resource, under which resources would be held
+  resourcePath :: Proxy a -> b -> T.Text
+  -- | Type of this resource (for signing)
+  resourceType :: Proxy a -> T.Text
 
 
 -- | Identify a collection of documents.
@@ -27,9 +35,16 @@ data CollectionId = CollectionId {
   collectionId :: T.Text
   } deriving (Eq, Ord)
 
+collectionIdProxy :: Proxy CollectionId
+collectionIdProxy = Proxy
 
-instance DBResourceId CollectionId where
-  resourceLink (CollectionId d c) = "dbs" </> d </> "colls" </> c
+
+
+instance DBResourceId CollectionId T.Text where
+  resourceLink (CollectionId d c) = resourcePath collectionIdProxy d </> c
+  resourcePath p db = "dbs" </> db </> resourceType p
+  resourceType _ = "colls"
+
 
 -- | Identify a document
 -- "The document resource is represented by docs in the DocumentDB resource model.
@@ -42,8 +57,14 @@ data DocumentId = DocumentId {
   docId :: T.Text
   } deriving (Eq, Ord)
 
-instance DBResourceId DocumentId where
-  resourceLink (DocumentId c d) = resourceLink c </> "docs" </> d
+documentIdProxy :: Proxy DocumentId
+documentIdProxy = Proxy
+
+instance DBResourceId DocumentId CollectionId where
+  resourceLink (DocumentId c d) = resourcePath documentIdProxy c </> d
+  resourcePath p c = resourceLink c </> resourceType p
+  resourceType _ = "docs"
+
 
 -- | Concatenate two string-likes, separating them with a slash ('/')
 (</>) :: (IsString a, Monoid a) => a -> a -> a

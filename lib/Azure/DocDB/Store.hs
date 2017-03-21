@@ -49,13 +49,13 @@ bodyIfPresent (SocketResponse _ _ bdy) = Just bdy
 getDocument :: (DBSocketMonad m, FromJSON a)
   => ETagged DocumentId
   -> m (Maybe (DBDocument a))
-getDocument (ETagged tag res@(DocumentId (CollectionId db coll) pdocId)) = do
+getDocument (ETagged tag res) = do
   srsp <- sendSocketRequest SocketRequest {
     srMethod = HT.GET,
     srContent = mempty,
-    srResourceType = "docs",
+    srResourceType = resourceType documentIdProxy,
     srResourceLink = resourceLink res,
-    srUriPath = "dbs" </> db </> "colls" </> coll </> "docs" </> pdocId,
+    srUriPath = resourceLink res,
     srHeaders =
       set (AH.header' hIfNoneMatch) (toHeader <$> tag)
       [AH.acceptJSON]
@@ -68,13 +68,13 @@ createDocument :: (DBSocketMonad m, ToJSON a, FromJSON a)
   => CollectionId
   -> a
   -> m (DBDocument a)
-createDocument res@(CollectionId db coll) doc = do
+createDocument res doc = do
   (SocketResponse _ _ bdy) <- sendSocketRequest SocketRequest {
     srMethod = HT.POST,
     srContent = A.encode doc,
-    srResourceType = "docs",
+    srResourceType = resourceType documentIdProxy,
     srResourceLink = resourceLink res,
-    srUriPath = "dbs" </> db </> "colls" </> coll </> "docs",
+    srUriPath = resourcePath documentIdProxy res,
     srHeaders = [AH.acceptJSON, AH.contentJSON]
     }
 
@@ -86,13 +86,13 @@ replaceDocument :: (DBSocketMonad m, ToJSON a, FromJSON a)
   => ETagged DocumentId
   -> a
   -> m (DBDocument a)
-replaceDocument (ETagged tag res@(DocumentId (CollectionId db coll) pdocId)) doc = do
+replaceDocument (ETagged tag res) doc = do
   (SocketResponse _ _ bdy) <- sendSocketRequest SocketRequest {
     srMethod = HT.PUT,
     srContent = A.encode doc,
-    srResourceType = "docs",
+    srResourceType = resourceType documentIdProxy,
     srResourceLink = resourceLink res,
-    srUriPath = "dbs" </> db </> "colls" </> coll </> "docs" </> pdocId,
+    srUriPath = resourceLink res,
     srHeaders =
       set (AH.header' hIfMatch) (toHeader <$> tag)
       [AH.acceptJSON, AH.contentJSON]
@@ -105,13 +105,13 @@ replaceDocument (ETagged tag res@(DocumentId (CollectionId db coll) pdocId)) doc
 deleteDocument :: (DBSocketMonad m)
   => ETagged DocumentId
   -> m ()
-deleteDocument (ETagged tag res@(DocumentId (CollectionId db coll) pdocId)) =
+deleteDocument (ETagged tag res) =
   void $ sendSocketRequest SocketRequest {
     srMethod = HT.DELETE,
     srContent = mempty,
-    srResourceType = "docs",
+    srResourceType = resourceType documentIdProxy,
     srResourceLink = resourceLink res,
-    srUriPath = "dbs" </> db </> "colls" </> coll </> "docs" </> pdocId,
+    srUriPath = resourceLink res,
     srHeaders =
       set (AH.header' hIfMatch) (toHeader <$> tag)
       [AH.acceptJSON, AH.contentJSON]

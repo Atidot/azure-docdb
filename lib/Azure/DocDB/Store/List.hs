@@ -129,13 +129,13 @@ listDocuments :: (DBSocketMonad m, ToJSON a, FromJSON a)
   => CollectionId
   -> ContinuationClause
   -> m (ContinuationClause, [DBDocument a])
-listDocuments res@(CollectionId db coll) ctoken = do
+listDocuments res ctoken = do
   (SocketResponse _ rhdrs bdy) <- sendSocketRequest SocketRequest {
     srMethod = HT.GET,
     srContent = mempty,
-    srResourceType = "docs",
+    srResourceType = resourceType documentIdProxy,
     srResourceLink = resourceLink res,
-    srUriPath = "dbs" </> db </> "colls" </> coll </> "docs",
+    srUriPath = resourcePath documentIdProxy res,
     srHeaders = AH.acceptJSON : catMaybes [thisContinuation ctoken]
     }
 
@@ -150,13 +150,13 @@ queryDocuments :: (DBSocketMonad m, FromJSON a)
   -> DBSQL
   -> ContinuationClause
   -> m (ContinuationClause, [DBDocument a])
-queryDocuments dbQParams res@(CollectionId db coll) sql ctoken = do
+queryDocuments dbQParams res sql ctoken = do
   (SocketResponse _ rhdrs bdy) <- sendSocketRequest SocketRequest {
     srMethod = HT.POST,
     srContent = A.encode sql,
-    srResourceType = "docs",
+    srResourceType = resourceType documentIdProxy,
     srResourceLink = resourceLink res,
-    srUriPath = "dbs" </> db </> "colls" </> coll </> "docs",
+    srUriPath = resourcePath documentIdProxy res,
     srHeaders = AH.isQuery
       : AH.acceptJSON
       : AH.contentJSONQuery
