@@ -1,8 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies     #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 module Azure.DocDB.Store (
   CollectionId(..),
@@ -17,6 +15,7 @@ module Azure.DocDB.Store (
   queryDocuments,
   ) where
 
+import           Control.Lens (makeLenses, set)
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Except
@@ -77,12 +76,12 @@ instance FromJSON a => FromJSON (DocumentsList a) where
 
 
 data DBQueryParam = DBQueryParam {
-  maxItemCount :: Int,
-  continuationToken :: T.Text,
-  enableCrossPartition :: Bool
+  _maxItemCount :: Int,
+  _continuationToken :: T.Text,
+  _enableCrossPartition :: Bool
   }
 
-
+makeLenses ''DBQueryParam
 
 
 -- | Prepend a header to a request, if a value is present to add
@@ -184,9 +183,9 @@ dbQueryParamSimple = DBQueryParam (-1) mempty False
 
 dbQueryParamToHeaders :: DBQueryParam -> [HT.Header]
 dbQueryParamToHeaders p =
-  prependIf (maxItemCount p > 0) (AH.maxItemCount, numToB (maxItemCount p)) $
-  prependIf (not . T.null . continuationToken $ p) (AH.continuation, T.encodeUtf8 $ continuationToken p) $
-  prependIf (enableCrossPartition p) (AH.queryCrossPartition, "True")
+  prependIf (_maxItemCount p > 0) (AH.maxItemCount, numToB (_maxItemCount p)) $
+  prependIf (not . T.null . _continuationToken $ p) (AH.continuation, T.encodeUtf8 $ _continuationToken p) $
+  prependIf (_enableCrossPartition p) (AH.queryCrossPartition, "True")
   []
   where
     prependIf :: Bool -> a -> [a] -> [a]
@@ -213,11 +212,9 @@ queryDocuments res@(CollectionId db coll) sql dbQParams = do
     srHeaders = dbQueryParamToHeaders dbQParams ++ [AH.isQuery, AH.acceptJSON, AH.contentJSONQuery]
     }
   dcs <- decodeOrThrow bdy
-  let dbQParams' = maybeUpdateCT dbQParams rhdrs
-  return (dbQParams', documentsListed dcs)
+  return (set continuationToken (nextContinuation rhdrs) dbQParams
+         , documentsListed dcs)
   where
-    maybeUpdateCT dbQParams rhdrs = dbQParams {
-      continuationToken =
-        maybe (continuationToken dbQParams) T.decodeUtf8
-        $ lookup AH.continuation rhdrs
-    }
+    -- Get the continuation token for the next request (or empty on the last page)
+    nextContinuation :: [HT.Header] -> T.Text
+    nextContinuation = maybe T.empty T.decodeUtf8 . lookup AH.continuation

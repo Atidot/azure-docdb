@@ -15,6 +15,7 @@ module Azure.DocDB.SocketMonad (
   ) where
 
 import           Control.Applicative
+import           Control.Lens (Lens', lens, over, set)
 import           Control.Monad
 import           Control.Monad.Except
 import           Control.Monad.State
@@ -110,6 +111,20 @@ instance MonadTrans DBSocketT where
   lift = DBSocketT . lift . lift
 
 
+-- Lenses for a request
+method' :: Lens' Request HT.Method
+method' = lens method (\req m -> req { method = m })
+
+path' :: Lens' Request B.ByteString
+path' = lens path (\req m -> req { path = m })
+
+requestBody' :: Lens' Request RequestBody
+requestBody' = lens requestBody (\req m -> req { requestBody = m })
+
+requestHeaders' :: Lens' Request [HT.Header]
+requestHeaders' = lens requestHeaders (\req m -> req { requestHeaders = m })
+
+
 -- | Execute the DB operation
 execDBSocketT :: MonadIO m => DBSocketT m a -> DBSocketState -> m (Either DBError a)
 execDBSocketT (DBSocketT m) = evalStateT (runExceptT m)
@@ -168,7 +183,8 @@ instance MonadIO m => DBSocketMonad (DBSocketT m) where
     response <- liftIO
       . sendHttps
       . setRequestContent
-      . setRequestTarget
+      . setRequestPath
+      . setRequestMethod
       . withUpdatedHeaders now signature
       $ req
 
@@ -186,21 +202,20 @@ instance MonadIO m => DBSocketMonad (DBSocketT m) where
       _ -> return . responseToSocketResponse $ response
     --
     where
-      --
-      setRequestTarget :: Request  -> Request
-      setRequestTarget req = req {
-          method = HT.renderStdMethod $ srMethod socketRequest,
-          path = path req </> T.encodeUtf8 (srUriPath socketRequest)
-          }
-      setRequestContent :: Request  -> Request
-      setRequestContent req = req {
-          requestBody = RequestBodyLBS (srContent socketRequest)
-          }
+      -- Assign the outgoing request method, path, and content
+      setRequestMethod, setRequestPath, setRequestContent :: Request  -> Request
+      setRequestMethod =
+          set method' (HT.renderStdMethod $ srMethod socketRequest)
+      setRequestPath =
+          over path' (</> T.encodeUtf8 (srUriPath socketRequest))
+      setRequestContent =
+          set requestBody' (RequestBodyLBS (srContent socketRequest))
+      -- Append new headers for the outgoing request
       withUpdatedHeaders :: ToHttpApiData a => MSDate -> a -> Request  -> Request
       withUpdatedHeaders when docDBSignature =
-        AH.modifyHeaders (\headers -> headers ++ srHeaders socketRequest) .
-        AH.addHeader (AH.msDate, toHeader when) .
-        AH.addHeader (HT.hAuthorization, toHeader docDBSignature)
+        over requestHeaders' (srHeaders socketRequest ++) .
+        over requestHeaders' ((AH.msDate, toHeader when) :) .
+        over requestHeaders' ((HT.hAuthorization, toHeader docDBSignature) :)
       responseToSocketResponse :: Response L.ByteString -> SocketResponse
       responseToSocketResponse response = SocketResponse
         (HT.statusCode $ responseStatus response)

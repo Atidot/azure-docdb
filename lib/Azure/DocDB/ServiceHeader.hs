@@ -36,13 +36,3 @@ sessionToken = "x-ms-session-token"
 
 msDate :: HT.HeaderName
 msDate = "x-ms-date"
-
-
--- | Modify headers on a request
-modifyHeaders :: ([HT.Header] -> [HT.Header]) -> HC.Request -> HC.Request
-modifyHeaders f req =
-  req { HC.requestHeaders = f . HC.requestHeaders $ req }
-
--- | Prepend a header to a request
-addHeader :: HT.Header -> HC.Request -> HC.Request
-addHeader h = modifyHeaders ((:) h)

@@ -36,6 +36,7 @@ library
                      , http-client
                      , http-client-tls
                      , http-types
+                     , lens
                      , memory
                      , mtl
                      , network-uri
