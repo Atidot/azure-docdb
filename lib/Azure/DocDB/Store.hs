@@ -5,6 +5,7 @@
 module Azure.DocDB.Store (
   CollectionId(..),
   DocumentId(..),
+  DBDocument(..),
   DBSQL(..),
   DocumentsList(..),
   dbQueryParamSimple,
@@ -15,7 +16,7 @@ module Azure.DocDB.Store (
   queryDocuments,
   ) where
 
-import           Control.Lens (makeLenses, set)
+import           Control.Lens (makeLenses, set, (^.))
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Except
@@ -23,13 +24,14 @@ import           Control.Monad.State
 import           Control.Monad.Trans
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
-import           Data.Aeson (ToJSON(..), FromJSON(..), Value(..), (.:), (.=))
+import           Data.Aeson (ToJSON(..), FromJSON(..), Value(..), (.:), (.:?), (.=))
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as A
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.List as Lst
+import           Data.Maybe (catMaybes)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import           Network.HTTP.Client as HC
@@ -40,6 +42,7 @@ import           Network.HTTP.Types.Status (statusIsSuccessful)
 import           Web.HttpApiData (ToHttpApiData(..))
 
 import Azure.DocDB.Auth
+import Azure.DocDB.Store.DBDocument
 import Azure.DocDB.ETag
 import Azure.DocDB.ResourceId
 import Azure.DocDB.SocketMonad
@@ -53,11 +56,6 @@ data DBSQL = DBSQL {
   } deriving (Eq)
 
 
--- | List of documents retrieved from the store
-newtype DocumentsList a = DocumentsList {
-  documentsListed :: [a]
-  } deriving (Eq, Ord)
-
 instance ToJSON DBSQL where
   toJSON (DBSQL sql prms) = A.object [
     "query" .= sql,
@@ -70,14 +68,10 @@ instance ToJSON DBSQL where
         "name" .= k
         ]
 
-instance FromJSON a => FromJSON (DocumentsList a) where
-  parseJSON (Object v) = DocumentsList
-    <$> v .: "Documents"
-
 
 data DBQueryParam = DBQueryParam {
-  _maxItemCount :: Int,
-  _continuationToken :: T.Text,
+  _maxItemCount :: Maybe Int,
+  _continuationToken :: Maybe T.Text,
   _enableCrossPartition :: Bool
   }
 
@@ -111,7 +105,7 @@ bodyIfPresent (SocketResponse _ _ bdy) = Just bdy
 -- | Retrieve a document from DocumentDB
 getDocument :: (DBSocketMonad m, FromJSON a)
   => ETagged DocumentId
-  -> m (Maybe (ETagged a))
+  -> m (Maybe (DBDocument a))
 getDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) = do
   srsp <- sendSocketRequest SocketRequest {
     srMethod = HT.GET,
@@ -122,15 +116,14 @@ getDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) = do
     srHeaders = maybeAddHeader ifNoneMatch tag [AH.acceptJSON]
     }
 
-  bdy <- traverse decodeOrThrow $ bodyIfPresent srsp
-  return $ ETagged (etagOf srsp) <$> bdy
+  traverse decodeOrThrow $ bodyIfPresent srsp
 
 
 -- | Retrieve a document from DocumentDB
 createDocument :: (DBSocketMonad m, ToJSON a, FromJSON a)
   => CollectionId
   -> a
-  -> m (ETagged a)
+  -> m (DBDocument a)
 createDocument res@(CollectionId db coll) doc = do
   (SocketResponse c rhdrs bdy) <- sendSocketRequest SocketRequest {
     srMethod = HT.POST,
@@ -141,14 +134,14 @@ createDocument res@(CollectionId db coll) doc = do
     srHeaders = [AH.acceptJSON, AH.contentJSON]
     }
 
-  ETagged (etagOf rhdrs) <$> decodeOrThrow bdy
+  decodeOrThrow bdy
 
 
 -- | Retrieve a document from DocumentDB
 replaceDocument :: (DBSocketMonad m, ToJSON a, FromJSON a)
   => ETagged DocumentId
   -> a
-  -> m (ETagged a)
+  -> m (DBDocument a)
 replaceDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) doc = do
   (SocketResponse c rhdrs bdy) <- sendSocketRequest SocketRequest {
     srMethod = HT.PUT,
@@ -159,7 +152,7 @@ replaceDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) doc 
     srHeaders = maybeAddHeader ifMatch tag [AH.acceptJSON, AH.contentJSON]
     }
 
-  ETagged (etagOf rhdrs) <$> decodeOrThrow bdy
+  decodeOrThrow bdy
 
 
 -- | Delete a document from DocumentDB
@@ -178,20 +171,16 @@ deleteDocument (ETagged tag res@(DocumentId (CollectionId db coll) docId)) =
 
 
 -- Simple, default query parameters
-dbQueryParamSimple = DBQueryParam (-1) mempty False
+dbQueryParamSimple = DBQueryParam Nothing Nothing False
 
 
 dbQueryParamToHeaders :: DBQueryParam -> [HT.Header]
-dbQueryParamToHeaders p =
-  prependIf (_maxItemCount p > 0) (AH.maxItemCount, numToB (_maxItemCount p)) $
-  prependIf (not . T.null . _continuationToken $ p) (AH.continuation, T.encodeUtf8 $ _continuationToken p) $
-  prependIf (_enableCrossPartition p) (AH.queryCrossPartition, "True")
-  []
+dbQueryParamToHeaders p = catMaybes
+  [ (,) AH.maxItemCount . numToB <$> (p ^. maxItemCount)
+  , (,) AH.continuation . T.encodeUtf8 <$> (p ^. continuationToken)
+  , (AH.queryCrossPartition, "True") <$ guard (p ^. enableCrossPartition)
+  ]
   where
-    prependIf :: Bool -> a -> [a] -> [a]
-    prependIf False = const id
-    prependIf True = (:)
-
     numToB :: (Show a, Num a) => a -> B.ByteString
     numToB = L.toStrict . B.toLazyByteString . B.stringUtf8 . show
 
@@ -201,7 +190,7 @@ queryDocuments :: (DBSocketMonad m, FromJSON a)
   => CollectionId
   -> DBSQL
   -> DBQueryParam
-  -> m (DBQueryParam, [a])
+  -> m (DBQueryParam, [DBDocument a])
 queryDocuments res@(CollectionId db coll) sql dbQParams = do
   (SocketResponse c rhdrs bdy) <- sendSocketRequest SocketRequest {
     srMethod = HT.POST,
@@ -216,5 +205,6 @@ queryDocuments res@(CollectionId db coll) sql dbQParams = do
          , documentsListed dcs)
   where
     -- Get the continuation token for the next request (or empty on the last page)
-    nextContinuation :: [HT.Header] -> T.Text
-    nextContinuation = maybe T.empty T.decodeUtf8 . lookup AH.continuation
+    nextContinuation :: [HT.Header] -> Maybe T.Text
+    nextContinuation h =
+      T.decodeUtf8 <$> lookup AH.continuation h

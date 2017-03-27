@@ -40,7 +40,7 @@ Offer 	    https://{databaseaccount}.documents.azure.com/offers/{offer}
 --
 testGetDoc :: (MonadIO m, DBSocketMonad m) => CollectionId -> m ()
 testGetDoc collection = do
-  rslt :: Maybe (ETagged A.Object) <- getDocument (pure (collection #> "testdoc"))
+  rslt :: Maybe (DBDocument A.Object) <- getDocument (pure (collection #> "testdoc"))
   liftIO $ print rslt
 
 
@@ -48,22 +48,22 @@ testDeleteDoc :: (MonadIO m, DBSocketMonad m) => DocumentId -> m ()
 testDeleteDoc docId = deleteDocument (pure docId)
 
 
-testCreateDoc :: (MonadIO m, DBSocketMonad m) => DocumentId -> m (ETagged A.Value)
+testCreateDoc :: (MonadIO m, DBSocketMonad m) => DocumentId -> m (DBDocument A.Value)
 testCreateDoc (DocumentId collection docName) = do
   let testDoc = A.Object $ HM.fromList
                   [ ("id", A.String docName),
                     ("Hello", A.Number 98000) ]
-  rslt2 :: ETagged A.Value <- createDocument collection testDoc
+  rslt2 :: DBDocument A.Value <- createDocument collection testDoc
   liftIO $ print rslt2
   return rslt2
 
 
-testReplaceDoc :: (MonadIO m, DBSocketMonad m) => ETagged DocumentId -> m (ETagged A.Value)
+testReplaceDoc :: (MonadIO m, DBSocketMonad m) => ETagged DocumentId -> m (DBDocument A.Value)
 testReplaceDoc taggedId@(ETagged tag (DocumentId collection docName)) = do
   let testDoc3 = A.Object $ HM.fromList
                    [ ("id", A.String docName),
                      ("Hello", A.Number 1011) ]
-  rslt2 :: ETagged A.Value <- replaceDocument taggedId testDoc3
+  rslt2 :: DBDocument A.Value <- replaceDocument taggedId testDoc3
   liftIO $ print rslt2
   return rslt2
 
@@ -71,19 +71,25 @@ testReplaceDoc taggedId@(ETagged tag (DocumentId collection docName)) = do
 test1 :: (MonadIO m, DBSocketMonad m) => CollectionId -> m ()
 test1 collection = do
   testGetDoc collection
+  sep
   safeRun $ testDeleteDoc docId
+  sep
   etaggedDoc <- testCreateDoc docId
-  testReplaceDoc (etaggedDoc *> pure docId)
+  sep
+  testReplaceDoc (ETagged (etagOf etaggedDoc) docId)
 
   -- queryDocuments
-  (_, x :: [A.Value]) <- queryDocuments collection (
+  sep
+  (_, x :: [DBDocument A.Value]) <- queryDocuments collection (
     DBSQL "SELECT * FROM Docs d WHERE d.Hello = @h"
       ["@h" .= (1011 :: Int)]) dbQueryParamSimple
+  liftIO $ print x
 
   liftIO $ print "Done Tests"
 
   where
     docId = collection #> "myTestDoc"
+    sep = liftIO $ putStrLn $ replicate 20 '-'
 
 
 safeRun :: (Show a, MonadIO m, MonadError a m) => m () -> m ()
