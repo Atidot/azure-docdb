@@ -9,6 +9,8 @@ module Azure.DocDB.Store (
   deleteDocument,
   getDocument,
   replaceDocument,
+  upsertDocument,
+  executeStoredProcedure,
 
   module Azure.DocDB.Store.List,
   ) where
@@ -101,6 +103,24 @@ replaceDocument (ETagged tag res) doc = do
   decodeOrThrow bdy
 
 
+-- | Retrieve a document from DocumentDB
+upsertDocument :: (DBSocketMonad m, ToJSON a, FromJSON a)
+  => CollectionId
+  -> a
+  -> m (DBDocument a)
+upsertDocument res doc = do
+  (SocketResponse _ _ bdy) <- sendSocketRequest SocketRequest {
+    srMethod = HT.POST,
+    srContent = A.encode doc,
+    srResourceType = resourceType documentIdProxy,
+    srResourceLink = resourceLink res,
+    srUriPath = resourcePath documentIdProxy res,
+    srHeaders = [AH.acceptJSON, AH.contentJSON, AH.isUpsert]
+    }
+
+  decodeOrThrow bdy
+
+
 -- | Delete a document from DocumentDB
 deleteDocument :: (DBSocketMonad m)
   => ETagged DocumentId
@@ -116,3 +136,20 @@ deleteDocument (ETagged tag res) =
       set (AH.header' hIfMatch) (toHeader <$> tag)
       [AH.acceptJSON, AH.contentJSON]
     }
+
+
+-- | Execute a Stored Procedure
+executeStoredProcedure :: (DBSocketMonad m, ToJSON a, FromJSON a)
+  => StoredProcedureId
+  -> a
+  -> m A.Value
+executeStoredProcedure res params = do
+  (SocketResponse _ _ bdy) <- sendSocketRequest SocketRequest {
+    srMethod = HT.POST,
+    srContent = A.encode params,
+    srResourceType = resourceType storedProcedureIdProxy,
+    srResourceLink = resourceLink res,
+    srUriPath = resourceLink res,
+    srHeaders = [AH.acceptJSON, AH.contentJSON]
+    }
+  decodeOrThrow bdy

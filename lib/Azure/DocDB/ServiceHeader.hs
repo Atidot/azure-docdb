@@ -19,6 +19,9 @@ acceptJSON = (HT.hAccept, "application/json")
 isQuery :: HT.Header
 isQuery = ("x-ms-documentdb-isquery", "True")
 
+isUpsert :: HT.Header
+isUpsert = ("x-ms-documentdb-is-upsert", "True")
+
 maxItemCount :: HT.HeaderName
 maxItemCount = "x-ms-max-item-count"
 

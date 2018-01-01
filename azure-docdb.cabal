@@ -13,7 +13,6 @@ build-type:          Simple
 cabal-version:       >=1.10
 extra-source-files:  README.md
 data-dir:            src
-data-files:          settings.js
 
 library
   hs-source-dirs:      lib
@@ -51,24 +50,3 @@ library
                      , time
                      , transformers
                      , unordered-containers
-
-executable sample
-  hs-source-dirs:      src
-  main-is:             Main.hs
-  default-language:    Haskell2010
-  other-modules:       Settings
-  build-depends:       base >= 4.7 && < 5
-                     , aeson
-                     , base64-bytestring
-                     , bytestring
-                     , conduit
-                     , containers
-                     , exceptions
-                     , http-client
-                     , http-client-tls
-                     , mtl
-                     , network-uri
-                     , text
-                     , transformers
-                     , unordered-containers
-                     , azure-docdb

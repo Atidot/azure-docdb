@@ -6,10 +6,12 @@ module Azure.DocDB.ResourceId (
   DBResourceId(..),
   CollectionId(..),
   DocumentId(..),
+  StoredProcedureId(..),
   ExtendPath(..),
   (</>),
   collectionIdProxy,
   documentIdProxy,
+  storedProcedureIdProxy
   ) where
 
 
@@ -65,6 +67,19 @@ instance DBResourceId DocumentId CollectionId where
   resourcePath p c = resourceLink c </> resourceType p
   resourceType _ = "docs"
 
+-- | Identify a stored procedure
+data StoredProcedureId = StoredProcedureId {
+  collectionSP :: CollectionId,
+  sprocId :: T.Text
+  } deriving (Eq, Ord)
+
+storedProcedureIdProxy :: Proxy StoredProcedureId
+storedProcedureIdProxy = Proxy
+
+instance DBResourceId StoredProcedureId CollectionId where
+  resourceLink (StoredProcedureId c d) = resourcePath storedProcedureIdProxy c </> d
+  resourcePath p c = resourceLink c </> resourceType p
+  resourceType _ = "sprocs"
 
 -- | Concatenate two string-likes, separating them with a slash ('/')
 (</>) :: (IsString a, Monoid a) => a -> a -> a
@@ -80,3 +95,6 @@ instance ExtendPath T.Text T.Text CollectionId where
 
 instance ExtendPath CollectionId T.Text DocumentId where
   (#>) = DocumentId
+
+instance ExtendPath CollectionId T.Text StoredProcedureId where
+  (#>) = StoredProcedureId

@@ -96,13 +96,13 @@ mkDebuggable :: MonadIO m
   -> m (Response L.ByteString)
 mkDebuggable f req = do
   liftIO $ do
-    print req
+    print $ requestHeaders req
     T.putStrLn (case requestBody req of
       RequestBodyLBS lb -> T.decodeUtf8 $ L.toStrict lb
       RequestBodyBS sb -> T.decodeUtf8 sb
       _ -> "Unknown response")
   rspTmp <- f req
-  liftIO $ print rspTmp
+  liftIO $ print $ responseHeaders rspTmp
   return rspTmp
 
 
