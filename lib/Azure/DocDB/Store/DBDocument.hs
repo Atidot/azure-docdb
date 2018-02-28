@@ -4,6 +4,7 @@
 module Azure.DocDB.Store.DBDocument (
   DBDocument(..),
   DocumentsList(..),
+  FreeList(..)
   ) where
 
 --
@@ -51,3 +52,13 @@ instance FromJSON a => FromJSON (DocumentsList a) where
   parseJSON (Object v) = DocumentsList
     <$> v .: "Documents"
   parseJSON _ = fail "DocumentsList"
+
+-- | List of documents retrieved from the store
+newtype FreeList a = FreeList {
+  freeItemsListed :: [a]
+  } deriving (Eq)
+
+instance FromJSON a => FromJSON (FreeList a) where
+  parseJSON (Object v) = FreeList
+    <$> v .: "Documents"
+  parseJSON _ = fail "FreeList"

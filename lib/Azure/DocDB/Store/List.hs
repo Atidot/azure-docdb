@@ -18,6 +18,7 @@ module Azure.DocDB.Store.List (
   listAll,
   listDocuments,
   queryDocuments,
+  queryFree
   ) where
 
 --
@@ -164,6 +165,39 @@ queryDocuments dbQParams res sql ctoken = do
     }
   dcs <- decodeOrThrow bdy
   return (nextContinuation rhdrs, documentsListed dcs)
+  where
+
+    dbQueryParamToHeaders :: DBQueryParam -> ContinuationClause -> [HT.Header]
+    dbQueryParamToHeaders p token = catMaybes
+      [ (,) AH.maxItemCount . numToB <$> maxItemCount p
+      , thisContinuation token
+      , (AH.queryCrossPartition, "True") <$ guard (enableCrossPartition p)
+      ]
+
+    numToB :: (Show a, Num a) => a -> B.ByteString
+    numToB = L.toStrict . B.toLazyByteString . B.stringUtf8 . show
+
+-- | Query DocumentDB freely
+queryFree :: (DBSocketMonad m, FromJSON a)
+  => DBQueryParam
+  -> CollectionId
+  -> DBSQL
+  -> ContinuationClause
+  -> m (ContinuationClause, [a])
+queryFree dbQParams res sql ctoken = do
+  (SocketResponse _ rhdrs bdy) <- sendSocketRequest SocketRequest {
+    srMethod = HT.POST,
+    srContent = A.encode sql,
+    srResourceType = resourceType documentIdProxy,
+    srResourceLink = resourceLink res,
+    srUriPath = resourcePath documentIdProxy res,
+    srHeaders = AH.isQuery
+      : AH.acceptJSON
+      : AH.contentJSONQuery
+      : dbQueryParamToHeaders dbQParams ctoken
+    }
+  dcs <- decodeOrThrow bdy
+  return (nextContinuation rhdrs, freeItemsListed dcs)
   where
 
     dbQueryParamToHeaders :: DBQueryParam -> ContinuationClause -> [HT.Header]
