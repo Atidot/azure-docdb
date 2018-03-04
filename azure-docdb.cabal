@@ -28,7 +28,7 @@ library
                      , Azure.DocDB.Store
                      , Azure.DocDB.Store.List
                      , Azure.DocDB.ETag
-  other-modules:       Azure.DocDB.ServiceHeader
+                     , Azure.DocDB.ServiceHeader
                      , Azure.DocDB.Store.DBDocument
   build-depends:       base >= 4.7 && < 5
                      , aeson
