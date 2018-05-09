@@ -14,6 +14,7 @@ module Azure.DocDB.SocketMonad.DBSocketT (
   mkDBSocketState
   ) where
 
+import           System.IO (stderr)
 import           Control.Applicative
 import           Control.Lens (Lens', lens, (%~), (.=), (%=))
 import           Control.Monad.Except
@@ -96,13 +97,13 @@ mkDebuggable :: MonadIO m
   -> m (Response L.ByteString)
 mkDebuggable f req = do
   liftIO $ do
-    print $ requestHeaders req
-    T.putStrLn (case requestBody req of
+    T.hPutStrLn stderr . T.pack . show  $ requestHeaders req
+    T.hPutStrLn stderr (case requestBody req of
       RequestBodyLBS lb -> T.decodeUtf8 $ L.toStrict lb
       RequestBodyBS sb -> T.decodeUtf8 sb
       _ -> "Unknown response")
   rspTmp <- f req
-  liftIO $ print $ responseHeaders rspTmp
+  liftIO . T.hPutStrLn stderr . T.pack . show $ responseHeaders rspTmp
   return rspTmp
 
 
