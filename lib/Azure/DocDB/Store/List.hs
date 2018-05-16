@@ -1,5 +1,9 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveAnyClass     #-}
+{-# LANGUAGE DeriveGeneric      #-}
+
 
 -----------------------------------------------------------------------------
 -- | List and query operations for documents
@@ -37,6 +41,10 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Network.HTTP.Types as HT
 
+import GHC.Generics          (Generic)
+import Data.Typeable         (Typeable)
+import Data.Data             (Data)
+import Control.DeepSeq       (NFData)
 
 import Azure.DocDB.Store.DBDocument
 import Azure.DocDB.ResourceId
@@ -46,9 +54,9 @@ import qualified Azure.DocDB.ServiceHeader as AH
 
 -- | SQL query into the document store
 data DBSQL = DBSQL {
-  dbSQL :: T.Text,
-  dbSQLParams :: [A.Pair]
-  } deriving (Eq)
+  dBSQL_sql    :: T.Text,
+  dBSQL_params :: [A.Pair]
+  } deriving (Show, Read, Eq, Typeable, Data, NFData, Generic)
 
 
 instance ToJSON DBSQL where
@@ -63,6 +71,8 @@ instance ToJSON DBSQL where
         "name" .= k
         ]
 
+-- TODO: maybe fix later. not needed yet
+instance FromJSON DBSQL
 
 data DBQueryParam = DBQueryParam {
   maxItemCount :: Maybe Int,
