@@ -34,9 +34,11 @@ library
                      , aeson
                      , base64-bytestring
                      , bytestring
+                     , binary
                      , conduit
                      , containers
                      , cryptonite
+                     , deepseq
                      , exceptions
                      , http-api-data
                      , http-client
