@@ -17,11 +17,11 @@ module Azure.DocDB.SocketMonad.DBSocketT (
   mkDBSocketState
   ) where
 
-import "base"    GHC.Generics  (Generic)
-import "base"    Data.Typeable (Typeable)
-import "base"    Data.Data     (Data)
-import "binary"  Data.Binary (Binary)
-import "deepseq" Control.DeepSeq (NFData)
+import           GHC.Generics  (Generic)
+import           Data.Typeable (Typeable)
+import           Data.Data     (Data)
+import           Data.Binary (Binary)
+import           Control.DeepSeq (NFData)
 import           System.IO (stderr)
 import           Control.Applicative
 import           Control.Lens (Lens', lens, (%~), (.=), (%=))
