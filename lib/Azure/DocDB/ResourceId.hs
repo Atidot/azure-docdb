@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE DeriveAnyClass      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DeriveDataTypeable  #-}
 
 module Azure.DocDB.ResourceId (
   DBResourceId(..),
@@ -14,7 +17,11 @@ module Azure.DocDB.ResourceId (
   storedProcedureIdProxy
   ) where
 
-
+import           GHC.Generics  (Generic)
+import           Data.Typeable (Typeable)
+import           Data.Data     (Data)
+import           Data.Binary (Binary)
+import           Control.DeepSeq (NFData)
 import qualified Data.Text as T
 import           Data.String (IsString)
 import           Data.Proxy
@@ -35,7 +42,7 @@ class DBResourceId a b | a -> b where
 data CollectionId = CollectionId {
   databaseId :: T.Text,
   collectionId :: T.Text
-  } deriving (Eq, Ord)
+  } deriving (Show, Read, Eq, Ord, Typeable, Data, NFData, Generic, Binary)
 
 collectionIdProxy :: Proxy CollectionId
 collectionIdProxy = Proxy
