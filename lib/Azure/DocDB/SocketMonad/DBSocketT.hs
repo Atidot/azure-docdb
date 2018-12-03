@@ -2,9 +2,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE DeriveAnyClass      #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DeriveDataTypeable  #-}
 
 -----------------------------------------------------------------------------
 -- | DBSocketT transformer which signs and issues network requests.
@@ -17,11 +14,6 @@ module Azure.DocDB.SocketMonad.DBSocketT (
   mkDBSocketState
   ) where
 
-import           GHC.Generics  (Generic)
-import           Data.Typeable (Typeable)
-import           Data.Data     (Data)
-import           Data.Binary (Binary)
-import           Control.DeepSeq (NFData)
 import           System.IO (stderr)
 import           Control.Applicative
 import           Control.Lens (Lens', lens, (%~), (.=), (%=))
@@ -53,7 +45,7 @@ data DBSocketState = DBSocketState {
   -- ^ Method to sign requests
 
   sendHttps :: Request -> IO (Response L.ByteString)
-  } deriving (Show, Read, Eq, Ord, Typeable, Data, NFData, Generic, Binary)
+  }
 
 
 newtype DBSocketT m a = DBSocketT {
