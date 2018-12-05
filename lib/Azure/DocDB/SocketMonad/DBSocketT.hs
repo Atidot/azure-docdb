@@ -126,12 +126,18 @@ instance MonadIO m => DBSocketMonad (DBSocketT m) where
       spWhen = now
       }
 
+    let req2 = applySocketRequest $ applySignature now signature req
     -- Build and issue the request
     response <- liftIO
       . sendHttpsProc
-      . applySocketRequest
-      . applySignature now signature
-      $ req
+      $ req2
+
+    currentTime <- liftIO getCurrentTime
+
+    liftIO $
+        writeFile
+            ("/tmp/cosmos/" ++ (show currentTime))
+            (unlines [show req2, show (srContent socketRequest), show response])
 
     let status = responseStatus response
     let statusText = T.decodeUtf8 . HT.statusMessage $ status
